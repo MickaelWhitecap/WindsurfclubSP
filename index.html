@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windsurf Club SP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f8fb;--card:#ffffff;--ink:#0f2a3a;--muted:#587080;--line:#dbe7ee;
+  --sea:#0a84c6;--sea-d:#06608f;--sky:#e3f3fc;--sun:#ffb627;--sun-l:#fff4d9;--coral:#ff6b5b;--coral-l:#ffe6e2;--mint:#16b38a;--mint-l:#dcf7ee;
+  --wind:#0a84c6;--wind-l:#e3f3fc;--foil:#7b5cff;--foil-l:#eeeaff;--kayak:#ff8a3d;--kayak-l:#fff0e5;
+  --ok:#0f9a72;--ok-l:#dcf7ee;--warn:#b86e00;--warn-l:#fff4d9;--bad:#d6402f;--bad-l:#ffe6e2;
+  --shadow:0 1px 2px rgba(15,42,58,.06),0 6px 20px rgba(15,42,58,.06);
+}
+:root[data-theme="dark"]{--bg:#0c1a24;--card:#132634;--ink:#eaf4fa;--muted:#9db4c2;--line:#22394a;--sky:#123247;--sun-l:#3a2f12;--coral-l:#3d1f1b;--mint-l:#123a30;--wind-l:#123247;--foil-l:#251f45;--kayak-l:#3a2414;--ok:#4fdcb0;--ok-l:#123a30;--warn:#ffc35a;--warn-l:#3a2f12;--bad:#ff8a7d;--bad-l:#3d1f1b;--shadow:none}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 Nunito,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+a{color:var(--sea)}
+/* Cabecera con ola */
+header{position:sticky;top:0;z-index:5;color:#fff;background:linear-gradient(120deg,#0a84c6 0%,#13a6d8 55%,#22c1c3 100%);box-shadow:0 4px 18px rgba(10,132,198,.25)}
+.top{display:flex;align-items:center;gap:12px;max-width:1140px;margin:0 auto;padding:14px 16px 6px}
+.logo{display:flex;align-items:center;gap:10px;flex:1;min-width:0}.logo svg{flex:none}
+.logo h1{font-size:20px;font-weight:800;margin:0;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.logo small{display:block;font-size:12px;opacity:.85;font-weight:600}
+.who{font-size:13px;opacity:.9;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav{display:flex;gap:6px;overflow-x:auto;max-width:1140px;margin:0 auto;padding:6px 16px 12px;scrollbar-width:none}
+nav button{flex:none;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:0;padding:8px 14px;border-radius:999px;color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+nav button:hover{background:rgba(255,255,255,.24)}nav button.on{background:#fff;color:var(--sea-d)}
+main{max-width:1140px;margin:0 auto;padding:20px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+h2{font-size:21px;font-weight:800;margin:0 0 12px}h3{font-size:16px;font-weight:800;margin:20px 0 8px;color:var(--sea-d)}
+:root[data-theme="dark"] h3{color:var(--sea)}
+/* Tarjetas de cifras */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px}
+.kpi{border-radius:18px;padding:18px;box-shadow:var(--shadow);border:1px solid var(--line);background:var(--card);position:relative;overflow:hidden}
+.kpi:before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--c)}
+.kpi .ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--cl);color:var(--c);margin-bottom:10px}
+.kpi b{display:block;font-size:30px;font-weight:800;line-height:1.1}.kpi span{color:var(--muted);font-size:14px;font-weight:600}
+.k1{--c:var(--sea);--cl:var(--sky)}.k2{--c:var(--mint);--cl:var(--mint-l)}.k3{--c:var(--sun);--cl:var(--sun-l)}.k4{--c:var(--coral);--cl:var(--coral-l)}
+/* Tablas */
+table{width:100%;border-collapse:separate;border-spacing:0}
+th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:13px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;white-space:nowrap;background:var(--bg)}
+th:first-child{border-top-left-radius:10px}th:last-child{border-top-right-radius:10px}
+tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--bg) 55%,transparent)}
+tr.click{cursor:pointer}tr.click:hover td{background:var(--sky)}
+.tablewrap{overflow-x:auto}
+.num{display:inline-grid;place-items:center;min-width:34px;height:28px;padding:0 8px;border-radius:9px;background:var(--sky);color:var(--sea-d);font-weight:800;font-size:14px}
+:root[data-theme="dark"] .num{color:var(--sea)}
+.av{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;font-size:13px;font-weight:800;color:#fff;margin-right:10px;flex:none}
+.pname{display:flex;align-items:center;font-weight:700}
+/* Formularios y botones */
+input,select,textarea{font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sea);box-shadow:0 0 0 3px var(--sky)}
+label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10px 0 4px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
+.btn{background:var(--sea);color:#fff;border:0;border-radius:12px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 2px 0 var(--sea-d)}
+.btn:hover{filter:brightness(1.07)}.btn.sec{background:var(--sky);color:var(--sea-d);box-shadow:none}.btn.sun{background:var(--sun);color:#3b2600;box-shadow:0 2px 0 #d48f00}
+.btn.small{padding:6px 12px;font-size:14px;border-radius:10px}.btn:disabled{opacity:.45;cursor:default;filter:none}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:800;background:var(--sky);color:var(--sea-d)}
+.tag.ok{background:var(--ok-l);color:var(--ok)}.tag.warn{background:var(--warn-l);color:var(--warn)}.tag.bad{background:var(--bad-l);color:var(--bad)}
+.muted{color:var(--muted)}.err{color:var(--bad);font-weight:700}.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1}
+/* Naves */
+.nave{--c:var(--wind);--cl:var(--wind-l)}.nave.foil{--c:var(--foil);--cl:var(--foil-l)}.nave.kayak{--c:var(--kayak);--cl:var(--kayak-l)}
+.nave .cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-20px -20px 16px;padding:16px 20px;background:var(--cl);border-radius:18px 18px 0 0;border-bottom:1px solid var(--line)}
+.nave .cab h2{margin:0;color:var(--c)}.nave .badge{background:var(--c);color:#fff;border-radius:999px;padding:3px 12px;font-weight:800;font-size:13px}
+.grid-huecos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.hueco{overflow-wrap:anywhere}
+.hueco{border:1.5px solid var(--line);border-left:5px solid var(--c);border-radius:12px;padding:9px 10px;font-size:13px;cursor:pointer;background:var(--card);line-height:1.3;transition:transform .1s}
+.hueco:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.hueco b{display:block;font-size:16px;color:var(--c)}
+.hueco.libre{border-style:dashed;border-left-width:1.5px;background:var(--mint-l);color:var(--ok);font-weight:800;cursor:default}.hueco.libre b{color:var(--ok)}
+.hueco.ces{background:var(--sun-l)}
+/* Barras de ocupación */
+.bar{height:14px;background:var(--bg);border-radius:999px;overflow:hidden;border:1px solid var(--line)}.bar i{display:block;height:100%;border-radius:999px;background:var(--c)}
+.ocup{display:grid;grid-template-columns:90px 1fr 70px;gap:12px;align-items:center;margin:10px 0;font-weight:700}
+.ocup .n{text-align:right;color:var(--muted);font-size:14px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:8px}
+/* Listas */
+.lista a{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;text-decoration:none;color:var(--ink)}.lista a:hover{background:var(--sky)}
+/* Diálogo */
+dialog{border:0;border-radius:20px;background:var(--card);color:var(--ink);max-width:760px;width:calc(100% - 24px);padding:0;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(6,40,60,.45);backdrop-filter:blur(3px)}
+dialog .hd{display:flex;align-items:center;gap:10px;padding:16px 20px;background:linear-gradient(120deg,#0a84c6,#22c1c3);color:#fff}
+dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:76vh;overflow:auto}
+/* Acceso */
+#login{min-height:100vh;display:grid;place-items:center;padding:16px;background:linear-gradient(160deg,#0a84c6 0%,#13a6d8 45%,#22c1c3 75%,#ffd27a 100%)}
+#login .card{width:100%;max-width:400px;padding:28px;border:0;box-shadow:0 20px 50px rgba(6,40,60,.25)}
+#login .marca{display:flex;align-items:center;gap:12px;margin-bottom:6px}#login h2{margin:0;font-size:24px}
+.hidden{display:none!important}
+/* Campaña */
+.camp{background:linear-gradient(135deg,var(--sky),var(--card) 70%)}
+.linea{position:relative;height:12px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin:14px 0 6px}
+.linea i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--mint),var(--sea))}
+.linea .hoy{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:var(--sun);border:3px solid var(--card);transform:translate(-50%,-50%);box-shadow:var(--shadow)}
+.pasos{display:grid;gap:12px}
+.paso{display:flex;gap:14px;align-items:flex-start;padding:14px;border:1.5px solid var(--line);border-radius:14px}
+.paso .pf{flex:none;width:56px;text-align:center;border-radius:12px;background:var(--sky);color:var(--sea-d);font-size:12px;font-weight:800;text-transform:uppercase;padding:6px 0}
+.paso .pf b{display:block;font-size:22px;line-height:1.1}
+.paso.toca{border-color:var(--sun);background:var(--sun-l)}.paso.toca .pf{background:var(--sun);color:#3b2600}
+.paso.hecho{border-color:var(--mint);background:var(--mint-l)}.paso.hecho .pf{background:var(--mint);color:#fff}
+.wa-lista{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.wa-fila{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line)}.wa-fila:last-child{border-bottom:0}
+.btn.wa{background:#25d366;box-shadow:0 2px 0 #128c7e;text-decoration:none;white-space:nowrap}.btn.wa.hecho{background:var(--mint-l);color:var(--ok);box-shadow:none}
+.avisos details{border:1.5px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.avisos details.nuevo{border-color:var(--sun)}.avisos details.nuevo summary{background:var(--sun-l)}
+.avisos summary{display:flex;gap:10px;align-items:center;padding:12px 14px;cursor:pointer;list-style:none}.avisos summary::-webkit-details-marker{display:none}
+.avisos summary:after{content:"▾";color:var(--muted)}.avisos details[open] summary:after{content:"▴"}
+.avisos .txt{white-space:pre-wrap;padding:4px 14px 14px;font-size:15px}
+.pasos-pago{padding-left:22px;margin:6px 0 14px}.pasos-pago li{margin:8px 0}
+.copia{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}.copia code{font:700 15px/1.4 ui-monospace,Menlo,monospace;background:var(--card);border:1.5px dashed var(--sun);border-radius:10px;padding:6px 10px;word-break:break-all}
+.sug{border:1.5px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}.sug.nueva{border-color:var(--sun);background:var(--sun-l)}
+.sug .txt{white-space:pre-wrap}.sug .resp{margin-top:10px;padding:10px 12px;border-left:4px solid var(--mint);background:var(--mint-l);border-radius:10px}
+.formas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:8px}
+.forma{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px}.forma p{margin:4px 0 10px;font-size:14px}
+.btn.bizum{background:#05c3de;box-shadow:0 2px 0 #0396ab}
+.aviso-camp{background:linear-gradient(120deg,var(--sun-l),var(--card));border-color:var(--sun)}
+.nave .cab .btn.sec{background:var(--card)}
+@media (max-width:600px){.who{display:none}.logo h1{font-size:18px}.kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi{padding:14px 12px}.kpi .ico{width:32px;height:32px;margin-bottom:6px}.kpi b{font-size:21px}.kpi span{font-size:13px}.ocup{grid-template-columns:70px 1fr 60px}th,td{padding:9px 8px}}
+</style>
+</head>
+<body>
+<div id="login" class="hidden">
+  <div class="card">
+    <div class="marca"><svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e3f3fc"/><path d="M25 8 L25 33 L12 33 Z" fill="#0a84c6"/><path d="M27 12 L27 33 L37 33 Z" fill="#ffb627"/><path d="M8 37 q4-3 8 0 t8 0 t8 0 t8 0" stroke="#22c1c3" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <div><h2>Windsurf Club SP</h2><span class="muted">Zona de socios</span></div></div>
+    <p class="muted" id="loginMsg">Entra con el email que tienes registrado en el club.</p>
+    <label>Email</label><input id="lEmail" type="email" autocomplete="email" placeholder="tu@email.com">
+    <label>Contraseña</label><input id="lPass" type="password" autocomplete="current-password" placeholder="Mínimo 8 caracteres">
+    <div class="flex" style="margin-top:16px"><button class="btn" id="bEntrar">Entrar</button><button class="btn sun" id="bCrear">Crear mi acceso</button></div>
+    <p class="muted" style="font-size:14px;margin-bottom:0">¿Primera vez? Escribe tu email y una contraseña nueva, y pulsa «Crear mi acceso».</p>
+    <p><a href="#" id="bOlvido">He olvidado mi contraseña</a></p>
+    <p id="lErr" class="err"></p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="top">
+      <div class="logo"><svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="rgba(255,255,255,.18)"/><path d="M25 8 L25 33 L12 33 Z" fill="#fff"/><path d="M27 12 L27 33 L37 33 Z" fill="#ffd27a"/><path d="M8 37 q4-3 8 0 t8 0 t8 0 t8 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+        <div><h1>Windsurf Club SP</h1><small id="rol"></small></div></div>
+      <span class="who" id="who"></span><button class="btn small" id="bSalir" style="background:rgba(255,255,255,.2);box-shadow:none">Salir</button>
+    </div>
+    <nav id="nav"></nav>
+  </header>
+  <main id="main"></main>
+</div>
+
+<dialog id="dlg"><div class="hd"><h2 id="dlgT"></h2><button class="btn small" style="background:rgba(255,255,255,.22);box-shadow:none" onclick="dlg.close()">Cerrar</button></div><div class="bd" id="dlgB"></div></dialog>
+
+<script>
+const SUPABASE_URL = 'https://rqchoprlrkxlcprdurpo.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Hgck5WxY-KFN0JvFA_AlNg_QaCGoUPT';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const esc = v => (v ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = n => (Number(n)||0).toLocaleString('es-ES',{minimumFractionDigits:0,maximumFractionDigits:2})+' €';
+const fecha = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-ES') : '';
+const hoy = () => new Date().toISOString().slice(0,10);
+const ANIO = new Date().getFullYear();
+let S = {}, TABS = []; // datos en memoria
+
+async function q(p){ const {data,error} = await p; if(error){ alert('Error: '+error.message); throw error; } return data; }
+
+// ---------- Acceso ----------
+$('#bEntrar').onclick = async () => {
+  $('#lErr').textContent='';
+  const {error} = await sb.auth.signInWithPassword({email:$('#lEmail').value.trim(), password:$('#lPass').value});
+  if(error) $('#lErr').textContent = error.message.includes('confirmed') ? 'Confirma primero tu email con el enlace que te enviamos.' : 'Email o contraseña incorrectos.';
+};
+$('#bCrear').onclick = async () => {
+  $('#lErr').textContent='';
+  const email=$('#lEmail').value.trim(), pass=$('#lPass').value;
+  if(pass.length<8){ $('#lErr').textContent='La contraseña debe tener al menos 8 caracteres.'; return; }
+  const {error} = await sb.auth.signUp({email, password:pass, options:{emailRedirectTo: location.origin+location.pathname}});
+  $('#lErr').textContent = error ? error.message : 'Te hemos enviado un email para confirmar tu acceso. Ábrelo y vuelve aquí para entrar.';
+};
+$('#bOlvido').onclick = async e => {
+  e.preventDefault();
+  const email=$('#lEmail').value.trim(); if(!email){ $('#lErr').textContent='Escribe tu email arriba.'; return; }
+  await sb.auth.resetPasswordForEmail(email,{redirectTo: location.origin+location.pathname});
+  $('#lErr').textContent='Si el email está registrado, recibirás un enlace para cambiar la contraseña.';
+};
+$('#bSalir').onclick = () => sb.auth.signOut();
+
+sb.auth.onAuthStateChange(async (ev, session) => {
+  if(ev==='PASSWORD_RECOVERY'){ const p=prompt('Escribe tu nueva contraseña (mínimo 8 caracteres)'); if(p) { await sb.auth.updateUser({password:p}); alert('Contraseña cambiada.'); } }
+  if(session) iniciar(session); else { $('#app').classList.add('hidden'); $('#login').classList.remove('hidden'); }
+});
+
+async function iniciar(session){
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  $('#who').textContent = session.user.email;
+  const {data:gestor} = await sb.rpc('es_gestor');
+  S.gestor = !!gestor;
+  $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],['sugerencias','Sugerencias']];
+  TABS = tabs;
+  $('#nav').innerHTML = tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('');
+  $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
+  await cargar();
+  ir(tabs[0][0]);
+}
+
+async function cargar(){
+  const [socios,naves,huecos,cuotas,pagos,tarifas,campanas,mensajes,comunicados,sugerencias] = await Promise.all([
+    q(sb.from('socios').select('*').order('numero')),
+    q(sb.from('naves').select('*').order('id')),
+    q(sb.from('huecos').select('*')),
+    q(sb.from('cuotas').select('*')),
+    q(sb.from('pagos').select('*').order('fecha',{ascending:false})),
+    q(sb.from('tarifas').select('*').order('anio')),
+    q(sb.from('campanas').select('*').order('anio')),
+    q(sb.from('mensajes').select('*').order('fecha',{ascending:false})),
+    q(sb.from('pagos_comunicados').select('*').order('fecha')),
+    q(sb.from('sugerencias').select('*').order('fecha',{ascending:false})),
+  ]);
+  Object.assign(S,{socios,naves,huecos,cuotas,pagos,tarifas,campanas,mensajes,comunicados,sugerencias});
+  if(S.gestor){
+    S.espera = await q(sb.from('lista_espera').select('*').order('fecha_peticion'));
+    S.avisos = await q(sb.from('avisos').select('*').order('id'));
+    S.historial = await q(sb.from('historial').select('*').order('id',{ascending:false}));
+  }
+  S.nave = Object.fromEntries(naves.map(n=>[n.id,n]));
+  S.socio = Object.fromEntries(socios.map(s=>[s.id,s]));
+}
+function ir(k){
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,sugerencias:vSugerencias,yo:vYo})[k]();
+}
+const activos = () => S.socios.filter(s=>s.estado==='activo');
+const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
+const huecosTxt = id => huecosDe(id).map(h=>`${h.nave} ${h.codigo}${h.cesion?' (cesión)':''}`).join(', ');
+const cuotaAnual = (id,anio) => S.cuotas.find(c=>c.socio_id===id&&c.anio===anio&&c.tipo==='anual');
+const PALETA=['#0a84c6','#ff6b5b','#12b886','#f59f00','#7c5cff','#e64980','#1c7ed6','#2b8a3e'];
+const ini = n => (n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const avatar = (s,t) => `<span class="av" style="background:${PALETA[(s.numero||s.id||0)%PALETA.length]}${t?`;width:${t}px;height:${t}px;font-size:${Math.round(t*.36)}px`:''}">${esc(ini(s.nombre))}</span>`;
+const tipoC = n => n.tipo==='foil'?'foil':n.tipo==='kayak'?'kayak':'';
+const ICO = {
+  socios:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.2c2.6.2 4.4 1.9 5 4.8"/></svg>',
+  ok:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>',
+  euro:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M17.5 6.5A7 7 0 1 0 17.5 17.5"/><path d="M4 10.5h9M4 13.5h9"/></svg>',
+  espera:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5"/></svg>'
+};
+function estadoTag(c){ if(!c) return '<span class="tag">sin cuota</span>'; const m={pagada:'ok',pendiente:'warn',exenta:''}[c.estado]; return `<span class="tag ${m}">${c.estado}</span>`; }
+
+// ---------- Resumen ----------
+function resumen(){
+  const act=activos().length, anio=Math.max(...S.cuotas.map(c=>c.anio), ANIO);
+  const cs=S.cuotas.filter(c=>c.anio===anio&&c.tipo==='anual');
+  const pend=cs.filter(c=>c.estado==='pendiente'), cobrado=S.pagos.filter(p=>p.fecha>=`${anio-1}-11-01`).reduce((a,p)=>a+Number(p.importe),0);
+  const sinHueco=activos().filter(s=>!S.huecos.some(h=>h.socio_id===s.id));
+  const porNave=S.naves.map(n=>{const oc=S.huecos.filter(h=>h.nave_id===n.id&&h.socio_id).length; return {n,oc};});
+  $('#main').innerHTML = `
+  <div class="kpis">
+    <div class="kpi k1"><div class="ico">${ICO.socios}</div><span>Socios activos</span><b>${act} / 175</b><span>${175-act===0?'Club completo':(175-act)+' plazas libres'}</span></div>
+    <div class="kpi k2"><div class="ico">${ICO.ok}</div><span>Cuotas ${anio} al día</span><b>${cs.filter(c=>c.estado!=='pendiente').length} / ${cs.length}</b><span>${pend.length?pend.length+' pendientes':'Ninguna pendiente'}</span></div>
+    <div class="kpi k3"><div class="ico">${ICO.euro}</div><span>Cobrado temporada ${anio}</span><b>${eur(cobrado)}</b><span>desde el 1/11/${anio-1}</span></div>
+    <div class="kpi k4"><div class="ico">${ICO.espera}</div><span>En lista de espera</span><b>${S.espera.filter(e=>e.estado==='esperando').length}</b><span>${S.espera.filter(e=>e.tipo==='interna'&&e.estado==='esperando').length} internas</span></div>
+  </div>
+  <div class="card"><h2>Ocupación por nave</h2>
+    <p class="muted" style="margin-top:-6px"><span class="nave" style="display:inline"><span class="dot"></span>Windsurf</span> &nbsp; <span class="nave foil" style="display:inline"><span class="dot"></span>Foil</span> &nbsp; <span class="nave kayak" style="display:inline"><span class="dot"></span>Kayak</span></p>
+    ${porNave.map(({n,oc})=>`<div class="ocup nave ${tipoC(n)}"><span><span class="dot"></span>${esc(n.nombre)}</span><div class="bar"><i style="width:${Math.min(100,oc/n.capacidad*100)}%"></i></div><span class="n">${oc} / ${n.capacidad}</span></div>`).join('')}
+  </div>
+  <div class="card"><h2>Socios sin hueco (${sinHueco.length})</h2>
+    <p class="muted">En patio o pendientes de asignar.</p>
+    <div class="lista">${sinHueco.map(s=>`<a href="#" onclick="ficha(${s.id});return false">${avatar(s)}<span class="num">${s.numero}</span><span><b>${esc(s.nombre)}</b>${s.notas?`<br><span class="muted" style="font-size:14px">${esc(s.notas)}</span>`:''}</span></a>`).join('')}</div>
+  </div>
+  ${pend.length?`<div class="card"><h2>Cuotas ${anio} pendientes</h2><div class="lista">${pend.map(c=>{const s=S.socio[c.socio_id]||{}; return `<a href="#" onclick="ficha(${c.socio_id});return false">${avatar(s)}<span class="num">${s.numero}</span><b class="grow">${esc(s.nombre)}</b><span class="tag warn">${eur(c.importe-c.descuento)}</span></a>`;}).join('')}</div></div>`:''}`;
+}
+
+// ---------- Socios ----------
+let filtro='', orden='numero', ver='activo';
+function vSocios(){
+  const anio=Math.max(...S.cuotas.map(c=>c.anio), ANIO);
+  let lista=S.socios.filter(s=>ver==='todos'||s.estado===ver);
+  if(filtro){ const f=filtro.toLowerCase(); lista=lista.filter(s=>[s.numero,s.nombre,s.email,s.dni,s.telefono,huecosTxt(s.id)].join(' ').toLowerCase().includes(f)); }
+  lista.sort((a,b)=> orden==='nombre'? a.nombre.localeCompare(b.nombre,'es') : (a.numero-b.numero));
+  $('#main').innerHTML = `<div class="card">
+    <div class="flex"><h2 class="grow" style="margin:0">Socios (${lista.length})</h2>
+      <select id="fVer" style="width:auto"><option value="activo">Activos</option><option value="baja">Bajas</option><option value="todos">Todos</option></select>
+      <button class="btn" onclick="ficha(null)" ${activos().length>=175?'disabled title="El club ya tiene 175 socios"':''}>Nuevo socio</button></div>
+    <input id="fBus" placeholder="Buscar por nombre, número, email, DNI o hueco" style="margin:12px 0" value="${esc(filtro)}">
+    <div class="tablewrap"><table><thead><tr><th data-o="numero">Nº</th><th data-o="nombre">Nombre</th><th>Huecos</th><th>Teléfono</th><th>Cuota ${anio}</th></tr></thead><tbody>
+    ${lista.map(s=>`<tr class="click" onclick="ficha(${s.id})"><td><span class="num">${s.numero??''}</span></td><td><span class="pname">${avatar(s)}<span>${esc(s.nombre)}${s.estado==='baja'?' <span class="tag bad">baja</span>':''}</span></span></td><td>${esc(huecosTxt(s.id))||'<span class="muted">sin hueco</span>'}</td><td>${esc(s.telefono)}</td><td>${s.estado==='activo'?estadoTag(cuotaAnual(s.id,anio)):''}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  $('#fVer').value=ver; $('#fVer').onchange=e=>{ver=e.target.value;vSocios();};
+  const b=$('#fBus'); b.oninput=e=>{filtro=e.target.value; vSocios(); const n=$('#fBus'); n.focus(); n.setSelectionRange(n.value.length,n.value.length);};
+  document.querySelectorAll('th[data-o]').forEach(th=>th.onclick=()=>{orden=th.dataset.o;vSocios();});
+}
+
+const CAMPOS=[['numero','Nº socio','number'],['nombre','Nombre'],['dni','DNI / NIE'],['telefono','Teléfono'],['email','Email','email'],['talla_licra','Talla licra'],['licencia_federativa','Licencia federativa'],['direccion','Dirección'],['fecha_alta','Fecha de alta','date']];
+function libresNumeros(){ const usados=new Set(activos().map(s=>s.numero)); return Array.from({length:175},(_,i)=>i+1).filter(n=>!usados.has(n)); }
+function ficha(id){
+  const s = id ? S.socio[id] : {estado:'activo',tipo:'numerario',numero:libresNumeros()[0],fecha_alta:hoy()};
+  const hs = id?huecosDe(id):[], cs=id?S.cuotas.filter(c=>c.socio_id===id).sort((a,b)=>b.anio-a.anio):[], ps=id?S.pagos.filter(p=>p.socio_id===id):[];
+  const hist = id&&S.historial?S.historial.filter(h=>h.socio_id===id):[];
+  $('#dlgT').textContent = id ? `Socio ${s.numero ?? ''} · ${s.nombre}` : 'Nuevo socio';
+  $('#dlgB').innerHTML = `
+    <div class="row">${CAMPOS.map(([k,l,t])=>`<div><label>${l}</label><input id="f_${k}" type="${t||'text'}" value="${esc(s[k])}"></div>`).join('')}</div>
+    <label>Notas</label><textarea id="f_notas" rows="2">${esc(s.notas)}</textarea>
+    <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarSocio(${id})">Guardar</button>
+      ${id&&s.estado==='activo'?`<button class="btn sun" onclick="verComoSocio(${id})">Ver como lo ve el socio</button><button class="btn sec" onclick="darBaja(${id})">Dar de baja</button>`:''}</div>
+    ${id?`
+    <h3>Huecos</h3>${hs.length?hs.map(h=>`<div class="flex">${esc(h.nave)} · ${esc(h.codigo)} ${h.cesion?'<span class="tag warn">cesión, no paga</span>':''}<button class="btn sec small" onclick="liberar(${h.id},${id})">Liberar</button></div>`).join(''):'<p class="muted">Sin hueco (patio).</p>'}
+    <div class="flex" style="margin-top:8px"><select id="nuevoHueco" class="grow"><option value="">Asignar un hueco libre…</option>${S.huecos.filter(h=>!h.socio_id).map(h=>`<option value="${h.id}">${esc(S.nave[h.nave_id].nombre)} · ${esc(h.codigo)}</option>`).join('')}</select><button class="btn small" onclick="asignar(${id})">Asignar</button></div>
+    <h3>Cuotas</h3><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
+      ${cs.map(c=>`<tr><td>${c.anio}</td><td>${c.tipo}</td><td>${eur(c.importe)}${Number(c.descuento)?` <span class="muted">(−${eur(c.descuento)})</span>`:''}</td><td>${estadoTag(c)}${c.motivo_exencion?`<br><span class="muted">${esc(c.motivo_exencion)}</span>`:''}</td><td>${c.estado==='pendiente'?`<div class="flex"><button class="btn small" onclick="pagoManual(${c.id})">Anotar pago</button><button class="btn sec small" onclick="ajustarCuota(${c.id})">Descuento o exención</button></div>`:''}</td></tr>`).join('')}</table>
+    <h3>Pagos</h3>${ps.length?`<table><tr><th>Fecha</th><th>Importe</th><th>Método</th></tr>${ps.map(p=>`<tr><td>${fecha(p.fecha)}</td><td>${eur(p.importe)}</td><td>${p.metodo}</td></tr>`).join('')}</table>`:'<p class="muted">Sin pagos.</p>'}
+    <h3>Avisos enviados</h3>${S.mensajes.filter(m=>m.socio_id===id).map(m=>`<p><span class="muted">${new Date(m.fecha).toLocaleDateString('es-ES')} · ${{whatsapp:'WhatsApp',email:'correo',web:'web'}[m.canal]}${m.por_sms?' + SMS':''} · ${m.leido_en?'leído':'sin leer'}</span><br>${esc(m.asunto)}</p>`).join('')||'<p class="muted">Ninguno.</p>'}
+    <h3>Historial</h3>${hist.map(h=>`<p><span class="muted">${fecha(h.fecha)} · ${esc(h.evento)}</span><br>${esc(h.detalle)}</p>`).join('')||'<p class="muted">Sin notas.</p>'}
+    <div class="flex"><input id="nuevaNota" class="grow" placeholder="Añadir una nota"><button class="btn small" onclick="nota(${id})">Añadir</button></div>`:''}`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarSocio(id){
+  const v={}; CAMPOS.forEach(([k,,t])=>{ const x=$('#f_'+k).value.trim(); v[k]= x===''?null:(t==='number'?Number(x):x); }); v.notas=$('#f_notas').value.trim()||null;
+  if(v.email) v.email=v.email.toLowerCase();
+  if(!v.nombre){ alert('Falta el nombre.'); return; }
+  if(id){ await q(sb.from('socios').update(v).eq('id',id)); await log(id,'datos modificados',''); }
+  else {
+    if(activos().length>=175){ alert('El club ya tiene 175 socios.'); return; }
+    const [n]=await q(sb.from('socios').insert({...v,estado:'activo',tipo:'numerario'}).select());
+    const t=S.tarifas.find(t=>t.anio===ANIO)||S.tarifas.at(-1);
+    await q(sb.from('cuotas').insert({socio_id:n.id,anio:t.anio,tipo:'entrada',importe:t.cuota_entrada,estado:'pendiente'}));
+    await log(n.id,'alta','Alta como socio numerario con cuota de entrada de '+eur(t.cuota_entrada)); id=n.id;
+  }
+  await cargar(); ficha(id); refrescar();
+}
+async function darBaja(id){
+  if(!confirm('¿Dar de baja a este socio? Sus huecos quedarán libres y su número podrá reasignarse.')) return;
+  await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('socio_id',id));
+  await q(sb.from('socios').update({estado:'baja',fecha_baja:hoy()}).eq('id',id));
+  await log(id,'baja','Baja del club; huecos liberados');
+  await cargar(); dlg.close(); refrescar();
+}
+async function asignar(id){ const h=Number($('#nuevoHueco').value); if(!h) return; await q(sb.from('huecos').update({socio_id:id}).eq('id',h)); const x=S.huecos.find(z=>z.id===h); await log(id,'hueco asignado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
+async function liberar(h,id){ if(!confirm('¿Liberar este hueco?')) return; const x=S.huecos.find(z=>z.id===h); await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('id',h)); await log(id,'hueco liberado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
+async function nota(id){ const t=$('#nuevaNota').value.trim(); if(!t) return; await log(id,'nota',t); await cargar(); ficha(id); }
+async function log(socio_id,evento,detalle){ await q(sb.from('historial').insert({socio_id,evento,detalle})); }
+async function ajustarCuota(cuotaId){
+  const c=S.cuotas.find(x=>x.id===cuotaId);
+  const d=prompt(`Cuota de ${eur(c.importe)}. ¿Cuántos euros regala el club? Escribe ${Number(c.importe)} para dejarla exenta, o 0 para quitar el descuento.`, Number(c.descuento)||0);
+  if(d===null) return; const v=Number(String(d).replace(',','.'));
+  if(!(v>=0 && v<=Number(c.importe))){ alert('El importe no es válido.'); return; }
+  const m=v>0?prompt('Motivo (por ejemplo: trabajos para el club)', c.motivo_exencion||''):'';
+  if(m===null) return;
+  const exenta=v===Number(c.importe);
+  await q(sb.from('cuotas').update({descuento:v, motivo_exencion:m||null, estado:exenta?'exenta':'pendiente'}).eq('id',cuotaId));
+  await log(c.socio_id, exenta?'cuota exenta':'descuento', `${c.tipo} ${c.anio}: ${eur(v)}${m?' · '+m:''}`);
+  await cargar(); ficha(c.socio_id); refrescar();
+}
+async function pagoManual(cuotaId){
+  const c=S.cuotas.find(x=>x.id===cuotaId);
+  const met=prompt('Método de pago: efectivo, transferencia, tarjeta o bizum','transferencia'); if(!met) return;
+  if(!['efectivo','transferencia','tarjeta','bizum'].includes(met.trim().toLowerCase())){ alert('Método no válido.'); return; }
+  await q(sb.from('pagos').insert({cuota_id:c.id,socio_id:c.socio_id,fecha:hoy(),importe:c.importe-c.descuento,metodo:met.trim().toLowerCase()}));
+  await q(sb.from('cuotas').update({estado:'pagada'}).eq('id',c.id));
+  await log(c.socio_id,'pago anotado',`${c.tipo} ${c.anio}: ${eur(c.importe-c.descuento)} por ${met}`);
+  await cargar(); ficha(c.socio_id); refrescar();
+}
+function refrescar(){ if(S.vista) ir(S.vista); }
+
+// ---------- Naves ----------
+function vNaves(){
+  $('#main').innerHTML = S.naves.map(n=>{
+    const hs=S.huecos.filter(h=>h.nave_id===n.id).sort((a,b)=>a.codigo.localeCompare(b.codigo,'es',{numeric:true}));
+    const oc=hs.filter(h=>h.socio_id).length;
+    return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
+      <button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button></div>
+      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${s?`ficha(${s.id})`:''}"><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}</div>`;}).join('')}</div></div>`;
+  }).join('');
+}
+async function editarNave(id){ const n=S.nave[id]; const c=prompt(`Capacidad de ${n.nombre}`,n.capacidad); if(!c) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
+async function nuevoHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c.trim()})); await cargar(); vNaves(); }
+
+// ---------- Cuotas ----------
+let anioC=null;
+function vCuotas(){
+  const anios=[...new Set([...S.cuotas.map(c=>c.anio),...S.tarifas.map(t=>t.anio)])].sort((a,b)=>b-a);
+  anioC = anioC ?? Math.max(...S.cuotas.map(c=>c.anio));
+  const cs=S.cuotas.filter(c=>c.anio===anioC).sort((a,b)=>(S.socio[a.socio_id]?.numero||0)-(S.socio[b.socio_id]?.numero||0));
+  const t=S.tarifas.find(x=>x.anio===anioC);
+  const total=cs.reduce((a,c)=>a+Number(c.importe)-Number(c.descuento),0), pag=cs.filter(c=>c.estado==='pagada').reduce((a,c)=>a+Number(c.importe)-Number(c.descuento),0);
+  $('#main').innerHTML = `<div class="card">
+    <div class="flex"><h2 class="grow" style="margin:0">Cuotas</h2><select id="selA" style="width:auto">${anios.map(a=>`<option ${a===anioC?'selected':''}>${a}</option>`).join('')}</select></div>
+    <p>${t?`Tarifa ${anioC}: ${eur(t.precio_hueco)} por hueco, ${eur(t.cuota_patio)} sin hueco (patio), ${eur(t.cuota_entrada)} de entrada. <a href="#" onclick="editarTarifa(${anioC});return false">Cambiar</a>`:`No hay tarifa para ${anioC}.`}</p>
+    <div class="flex"><span class="grow">${cs.filter(c=>c.tipo==='anual').length} cuotas anuales · ${eur(pag)} cobrados de ${eur(total)}</span>
+      <button class="btn" onclick="generar(${anioC})" ${t?'':'disabled'}>Generar cuotas anuales de ${anioC}</button>
+      <button class="btn sec" onclick="nuevaTarifa()">Nueva tarifa</button></div>
+    <div class="tablewrap" style="margin-top:12px"><table><tr><th>Nº</th><th>Socio</th><th>Concepto</th><th>Importe</th><th>Estado</th></tr>
+    ${cs.map(c=>{const s=S.socio[c.socio_id]; return `<tr class="click" onclick="ficha(${c.socio_id})"><td>${s?.numero??''}</td><td>${esc(s?.nombre)}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td></tr>`;}).join('')}</table></div></div>`;
+  $('#selA').onchange=e=>{anioC=Number(e.target.value);vCuotas();};
+}
+async function generar(a,camp){ if(!confirm(`Se creará la cuota anual de ${a} para cada socio activo que aún no la tenga. ¿Continuar?`)) return; const n=await q(sb.rpc('generar_cuotas',{p_anio:a})); alert(`${n} cuotas creadas.`); await cargar(); camp?vCampana():vCuotas(); }
+async function editarTarifa(a){ const t=S.tarifas.find(x=>x.anio===a); const p=prompt('Precio por hueco (€)',t.precio_hueco); if(p===null) return; const pa=prompt('Cuota sin hueco / patio (€)',t.cuota_patio); if(pa===null) return; const e=prompt('Cuota de entrada (€)',t.cuota_entrada); if(e===null) return; await q(sb.from('tarifas').update({precio_hueco:p,cuota_patio:pa,cuota_entrada:e}).eq('anio',a)); await cargar(); vCuotas(); }
+async function nuevaTarifa(){ const a=Number(prompt('Año de la nueva tarifa',Math.max(...S.tarifas.map(t=>t.anio))+1)); if(!a) return; const u=S.tarifas.at(-1); await q(sb.from('tarifas').insert({anio:a,precio_hueco:u.precio_hueco,cuota_patio:u.cuota_patio,cuota_entrada:u.cuota_entrada})); anioC=a; await cargar(); vCuotas(); }
+
+// ---------- Campaña de cuotas ----------
+const fLarga = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}) : '';
+const sumaDias = (d,n) => { const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+const diasEntre = (a,b) => Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+const campanaActual = () => { const h=hoy(); const cs=[...(S.campanas||[])].sort((a,b)=>a.anio-b.anio); return cs.find(c=>(c.prorroga_hasta||c.fin)>=h) || cs.at(-1); };
+const AVISOS = {
+  apertura:{t:'Apertura de la campaña', a:'Todos los socios', asunto:a=>`Abierta la campaña de cuotas ${a.anio} · Windsurf Club SP`,
+    cuerpo:a=>`Hola:\n\nYa está abierta la campaña de cuotas ${a.anio} del club. Tienes del ${fLarga(a.inicio)} al ${fLarga(a.fin)} para pagar tu cuota anual.\n\nLa cuota es de ${eur(tarifaDe(a.anio)?.precio_hueco)} por cada hueco que tengas asignado (${eur(tarifaDe(a.anio)?.cuota_patio)} si estás en patio). Puedes ver tu importe exacto entrando en la web del club con tu email.\n\nCómo pagar: ${a.instrucciones_pago||''}\n\nGracias por seguir haciendo club. ¡Nos vemos en el agua!\n\nLa junta del Windsurf Club SP`},
+  recordatorio:{t:'Recordatorio a mitad de campaña', a:'Socios con la cuota pendiente', asunto:a=>`Recordatorio: tu cuota ${a.anio} está pendiente`,
+    cuerpo:a=>`Hola:\n\nTe recordamos que la campaña de cuotas ${a.anio} sigue abierta hasta el ${fLarga(a.fin)} y todavía no nos consta el pago de tu cuota.\n\nPuedes ver tu importe entrando en la web del club con tu email.\n\nCómo pagar: ${a.instrucciones_pago||''}\n\nSi ya la has pagado en los últimos días, no hagas caso de este mensaje. ¡Gracias!\n\nLa junta del Windsurf Club SP`},
+  ultimo:{t:'Último aviso, una semana antes del cierre', a:'Socios con la cuota pendiente', asunto:a=>`Último aviso: la campaña de cuotas ${a.anio} termina el ${fecha(a.fin)}`,
+    cuerpo:a=>`Hola:\n\nQueda una semana para que termine la campaña de cuotas ${a.anio} (${fLarga(a.fin)}) y todavía no nos consta el pago de tu cuota.${a.consecuencia?`\n\n${a.consecuencia}`:''}\n\nCómo pagar: ${a.instrucciones_pago||''}\n\nSi tienes cualquier problema para pagar, escríbenos y lo hablamos.\n\nLa junta del Windsurf Club SP`},
+  fuera_plazo:{t:'Cuota fuera de plazo', a:'Socios con la cuota pendiente', asunto:a=>`Tu cuota ${a.anio} está fuera de plazo`,
+    cuerpo:a=>`Hola:\n\nLa campaña de cuotas ${a.anio} terminó el ${fLarga(a.fin)} y no nos consta el pago de tu cuota.${a.consecuencia?`\n\n${a.consecuencia}`:''}\n\nCómo pagar: ${a.instrucciones_pago||''}\n\nSi crees que es un error, responde a este correo.\n\nLa junta del Windsurf Club SP`}
+};
+const movil = t => { let d=String(t||'').replace(/\D/g,''); if(d.startsWith('0034')) d=d.slice(4); if(d.length===9&&/^[67]/.test(d)) return '34'+d; if(d.length===11&&d.startsWith('34')) return d; return null; };
+const extraWA = (a,s) => { const c=S.cuotas.find(x=>x.socio_id===s.id&&x.anio===a.anio&&x.tipo==='anual'); return (c&&c.estado==='pendiente'?`\n\nTu cuota ${a.anio}: ${eur(c.importe-c.descuento)} (socio nº ${s.numero}).`:''); };
+const SMS = {
+  apertura:'Windsurf Club SP: abierta la campaña de cuotas {anio} hasta el {fin}. Tu cuota: {importe} EUR. Paga en la web del club con tarjeta, Bizum o transferencia.',
+  recordatorio:'Windsurf Club SP: tu cuota {anio} ({importe} EUR) sigue pendiente. Plazo hasta el {fin}. Paga en la web del club. Si ya pagaste, ignora este SMS.',
+  ultimo:'Windsurf Club SP: ULTIMO AVISO. Tu cuota {anio} ({importe} EUR) vence el {fin}. Despues hay prorroga hasta el {prorroga} y luego se pierde el hueco.',
+  fuera_plazo:'Windsurf Club SP: tu cuota {anio} ({importe} EUR) esta fuera de plazo. Paga antes del {prorroga} o tu hueco pasara a la lista de espera.'
+};
+const limpiarSMS = t => t.replace(/ñ/g,'\u0001').replace(/Ñ/g,'\u0002').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\u0001/g,'ñ').replace(/\u0002/g,'Ñ').replace(/€/g,'EUR').replace(/[«»“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-');
+const importeSocio = (a,s) => { const c=S.cuotas.find(x=>x.socio_id===s.id&&x.anio===a.anio&&x.tipo==='anual'); if(c) return Number(c.importe)-Number(c.descuento); const t=tarifaDe(a.anio); const n=S.huecos.filter(h=>h.socio_id===s.id&&!h.cesion).length; return t?(n?n*t.precio_hueco:Number(t.cuota_patio)):0; };
+const textoSMS = (plantilla,a,s) => limpiarSMS(plantilla.replace(/\{anio\}/g,a.anio).replace(/\{fin\}/g,fecha(a.fin)).replace(/\{prorroga\}/g,fecha(a.prorroga_hasta||a.fin)).replace(/\{importe\}/g,String(importeSocio(a,s)).replace('.',',')).replace(/\{numero\}/g,s.numero??''));
+const trozos = n => n<=160?1:Math.ceil(n/153);
+const tarifaDe = a => S.tarifas.find(t=>t.anio===a);
+function destinatarios(a,tipo){
+  const pendientes = new Set(S.cuotas.filter(c=>c.anio===a.anio&&c.tipo==='anual'&&c.estado==='pendiente').map(c=>c.socio_id));
+  const ss = activos().filter(s=> tipo==='apertura' ? true : pendientes.has(s.id));
+  const emails=[...new Set(ss.map(s=>(s.email||'').trim().toLowerCase()).filter(e=>e.includes('@')))];
+  return {socios:ss, emails, sinEmail:ss.filter(s=>!(s.email||'').includes('@'))};
+}
+function vCampana(){
+  const a=campanaActual();
+  if(!a){ $('#main').innerHTML=`<div class="card"><h2>No hay ninguna campaña</h2><button class="btn" onclick="nuevaCampana()">Crear campaña</button></div>`; return; }
+  const h=hoy(), cierre=a.prorroga_hasta||a.fin;
+  const cs=S.cuotas.filter(c=>c.anio===a.anio&&c.tipo==='anual');
+  const pag=cs.filter(c=>c.estado!=='pendiente'), pend=cs.filter(c=>c.estado==='pendiente');
+  const total=cs.reduce((x,c)=>x+Number(c.importe)-Number(c.descuento),0), cobrado=cs.filter(c=>c.estado==='pagada').reduce((x,c)=>x+Number(c.importe)-Number(c.descuento),0);
+  const estado = h<a.inicio ? ['Próxima',`Empieza en ${diasEntre(h,a.inicio)} días`,'warn'] : h<=a.fin ? ['Abierta',`Quedan ${diasEntre(h,a.fin)} días`,'ok'] : h<=cierre ? ['Prórroga',`Último plazo: ${fecha(cierre)}`,'warn'] : ['Cerrada',`Terminó el ${fecha(a.fin)}`,'bad'];
+  const dur=Math.max(1,diasEntre(a.inicio,cierre)), pos=Math.min(100,Math.max(0,diasEntre(a.inicio,h)/dur*100));
+  const env = t => (S.avisos||[]).filter(v=>v.anio===a.anio&&v.tipo===t);
+  const sinHueco=activos().filter(s=>!S.huecos.some(x=>x.socio_id===s.id));
+  const t=tarifaDe(a.anio);
+  const pasos=[
+    {f:sumaDias(a.inicio,-7), t:'Preparar la campaña', d:`Revisa la tarifa (${t?`${eur(t.precio_hueco)} por hueco, ${eur(t.cuota_patio)} en patio`:'falta la tarifa'}) y que cada socio tenga sus huecos bien asignados. Ahora hay ${sinHueco.length} socios sin hueco, que pagarán la cuota de patio.`, hecho:false, acc:`<button class="btn sec small" onclick="ir('naves')">Revisar huecos</button>`},
+    {f:a.inicio, t:'Generar las cuotas', d:`Crea la cuota ${a.anio} de cada socio activo. Después revisa descuentos y exenciones en las fichas.`, hecho:cs.length>0, acc:`<button class="btn small" onclick="generarCampana(${a.anio})" ${cs.length?'disabled':''}>Generar cuotas ${a.anio}</button>`},
+    {f:a.inicio, k:'apertura'},
+    {f:sumaDias(a.inicio,14), k:'recordatorio'},
+    {f:sumaDias(a.fin,-7), k:'ultimo'},
+    {f:sumaDias(a.fin,1), k:'fuera_plazo'},
+  ];
+  $('#main').innerHTML = `
+  <div class="card camp"><div class="flex"><div class="grow"><span class="muted">Campaña de cuotas</span><h2 style="margin:0;font-size:28px">${a.anio}</h2></div><span class="tag ${estado[2]}" style="font-size:15px">${estado[0]}</span></div>
+    <p style="margin:8px 0 4px"><b>Del ${fLarga(a.inicio)} al ${fLarga(a.fin)}</b>${a.prorroga_hasta?` · prórroga hasta el ${fLarga(a.prorroga_hasta)}`:''} · ${estado[1]}</p>
+    <div class="linea"><i style="width:${pos}%"></i><span class="hoy" style="left:${pos}%"></span></div>
+    <div class="flex muted" style="font-size:13px;justify-content:space-between"><span>${fecha(a.inicio)}</span><span>${fecha(cierre)}</span></div>
+    ${a.consecuencia?`<p><b>Si no se paga a tiempo:</b> ${esc(a.consecuencia)}</p>`:`<p class="muted">Falta decidir qué pasa si un socio no paga a tiempo.</p>`}
+    <div class="flex"><button class="btn sec small" onclick="editarCampana(${a.anio})">Cambiar fechas, pago o consecuencia</button></div></div>
+  <div class="kpis">
+    <div class="kpi k1"><div class="ico">${ICO.socios}</div><span>Cuotas generadas</span><b>${cs.length}</b><span>${cs.length?'de '+activos().length+' socios':'Aún no generadas'}</span></div>
+    <div class="kpi k2"><div class="ico">${ICO.ok}</div><span>Pagadas o exentas</span><b>${pag.length} / ${cs.length}</b><span>${cs.length?Math.round(pag.length/cs.length*100)+' %':'—'}</span></div>
+    <div class="kpi k3"><div class="ico">${ICO.euro}</div><span>Cobrado</span><b>${eur(cobrado)}</b><span>de ${eur(total)} previstos</span></div>
+    <div class="kpi k4"><div class="ico">${ICO.espera}</div><span>Pendientes</span><b>${pend.length}</b><span>${eur(total-cobrado)} por cobrar</span></div>
+  </div>
+  <div class="card"><h2>Calendario de la campaña</h2><div class="pasos">
+    ${pasos.map((p,i)=>{ if(p.k){ const av=AVISOS[p.k], e=env(p.k), d=destinatarios(a,p.k);
+        const hecho=e.length||S.mensajes.some(m=>m.anio===a.anio&&m.tipo===p.k);
+        return `<div class="paso ${hecho?'hecho':''} ${!hecho&&h>=p.f?'toca':''}"><div class="pf"><b>${new Date(p.f+'T00:00:00').getDate()}</b>${new Date(p.f+'T00:00:00').toLocaleDateString('es-ES',{month:'short'})}</div><div class="grow">
+          <h3 style="margin:0 0 2px">${av.t}</h3><p class="muted" style="margin:0 0 8px">Para: ${av.a} · ${d.emails.length} emails${d.sinEmail.length?` · ${d.sinEmail.length} sin email`:''}${e.length?` · <span class="tag ok">enviado el ${fecha(e.at(-1).fecha)}</span>`:''}${(()=>{const ms=S.mensajes.filter(m=>m.anio===a.anio&&m.tipo===p.k), n=ms.length, ns=ms.filter(m=>m.por_sms).length; return (n?` · en la ficha de ${n} socios`:'')+(ns?` · ${ns} SMS`:'');})()}</p>
+          <div class="flex"><button class="btn small" onclick="verAviso(${a.anio},'${p.k}')">Ver y enviar</button></div></div></div>`; }
+      return `<div class="paso ${p.hecho?'hecho':''} ${!p.hecho&&h>=p.f?'toca':''}"><div class="pf"><b>${new Date(p.f+'T00:00:00').getDate()}</b>${new Date(p.f+'T00:00:00').toLocaleDateString('es-ES',{month:'short'})}</div><div class="grow"><h3 style="margin:0 0 2px">${p.t}</h3><p class="muted" style="margin:0 0 8px">${p.d}</p><div class="flex">${p.acc}</div></div></div>`; }).join('')}
+  </div></div>
+  ${(()=>{const l=S.comunicados.filter(x=>!x.revisado&&cs.some(c=>c.id===x.cuota_id&&c.estado==='pendiente')); return l.length?`<div class="card" style="border-color:var(--sun)"><h2>Pagos avisados por los socios (${l.length})</h2><p class="muted" style="margin-top:-6px">Comprueba en el banco que el ingreso ha llegado y confírmalo.</p><div class="lista">${l.map(x=>{const s=S.socio[x.socio_id]||{}, c=S.cuotas.find(k=>k.id===x.cuota_id); return `<div class="flex" style="padding:8px 10px">${avatar(s)}<span class="num">${s.numero}</span><b class="grow">${esc(s.nombre)}</b><span class="muted">${new Date(x.fecha).toLocaleDateString('es-ES')}</span><span class="tag warn">${eur(c.importe-c.descuento)}</span><button class="btn small" onclick="confirmarComunicado(${x.id})">Confirmar pago</button></div>`;}).join('')}</div></div>`:'';})()}
+  ${pend.length?`<div class="card"><h2>Pendientes de pago (${pend.length})</h2><div class="lista">${pend.sort((x,y)=>(S.socio[x.socio_id]?.numero||0)-(S.socio[y.socio_id]?.numero||0)).map(c=>{const s=S.socio[c.socio_id]||{}; return `<a href="#" onclick="ficha(${c.socio_id});return false">${avatar(s)}<span class="num">${s.numero}</span><b class="grow">${esc(s.nombre)}</b><span class="tag warn">${eur(c.importe-c.descuento)}</span></a>`;}).join('')}</div></div>`:''}`;
+}
+function verAviso(anio,tipo){
+  const a=S.campanas.find(c=>c.anio===anio), av=AVISOS[tipo], d=destinatarios(a,tipo);
+  $('#dlgT').textContent=av.t;
+  $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">${(()=>{const n=S.mensajes.filter(m=>m.anio===anio&&m.tipo===tipo).length; return n?`<span class="tag ok">Ya está en la ficha de ${n} socios</span> `:'';})()}Puedes avisar por WhatsApp (abajo) o por correo. El correo propio de la web llegará en el paso 4. Mientras tanto, copia el texto y los emails y envíalo desde tu Gmail, poniendo los emails en <b>CCO</b> para que nadie vea las direcciones de los demás.</p>
+    <label>Asunto</label><input id="avA" value="${esc(av.asunto(a))}">
+    <label>Mensaje</label><textarea id="avC" rows="14">${esc(av.cuerpo(a))}</textarea>
+    <label>Destinatarios: ${d.emails.length} emails (${av.a.toLowerCase()})</label><textarea id="avE" rows="3" readonly>${esc(d.emails.join(', '))}</textarea>
+    ${d.sinEmail.length?`<p class="muted">Sin email, avisar por teléfono: ${d.sinEmail.map(s=>`${s.numero} ${esc(s.nombre)}${s.telefono?' ('+esc(s.telefono)+')':''}`).join(', ')}.</p>`:''}
+    <h3>Por WhatsApp, al móvil de cada socio</h3>
+    <p class="muted" style="margin-top:0">Cada botón abre WhatsApp con el mensaje ya escrito para ese socio (con su importe). Solo tienes que pulsar enviar. Los que ya hayas abierto se marcan en verde.</p>
+    <div class="wa-lista">${d.socios.map(s=>{const m=movil(s.telefono); return `<div class="wa-fila"><span class="num">${s.numero}</span><span class="grow">${esc(s.nombre)}</span>${m?`<a class="btn small wa" target="_blank" rel="noopener" href="https://wa.me/${m}" data-m="${m}" data-x="${esc(extraWA(a,s))}" onclick="this.href='https://wa.me/'+this.dataset.m+'?text='+encodeURIComponent($('#avC').value+this.dataset.x);this.classList.add('hecho');this.textContent='✓ Abierto';registrarWA(${anio},'${tipo}',${s.id})">WhatsApp</a>`:'<span class="muted" style="font-size:13px">sin móvil</span>'}</div>`;}).join('')}</div>
+    <h3>Por SMS, a todos de una vez</h3>
+    <p class="muted" style="margin-top:0">Puedes usar {importe}, {fin}, {prorroga}, {anio} y {numero}: se cambian por los datos de cada socio. Las tildes se quitan solas para que quepa en un SMS.</p>
+    <textarea id="smsT" rows="3" oninput="contarSMS(${anio},'${tipo}')">${esc(SMS[tipo])}</textarea>
+    <p id="smsInfo" class="muted" style="font-size:14px"></p>
+    <div class="flex"><button class="btn" id="bSMS" onclick="enviarSMS(${anio},'${tipo}')">Enviar SMS</button></div>
+    <h3>Por correo</h3>
+    <div class="flex" style="margin-top:12px"><button class="btn sec" onclick="copiar('#avA')">Copiar asunto</button><button class="btn sec" onclick="copiar('#avC')">Copiar mensaje</button><button class="btn sec" onclick="copiar('#avE')">Copiar emails</button>
+      <button class="btn sun" onclick="marcarAviso(${anio},'${tipo}',${d.emails.length})">Ya lo he enviado: guardar en la ficha de todos</button></div>
+    <p class="muted" style="font-size:14px">Cada mensaje queda guardado en «Mis avisos» de la ficha del socio, para que lo pueda consultar cuando entre en la web. Los de WhatsApp se guardan al pulsar el botón.</p>`;
+  if(!dlg.open) dlg.showModal();
+  contarSMS(anio,tipo);
+}
+function contarSMS(anio,tipo){
+  const a=S.campanas.find(c=>c.anio===anio), d=destinatarios(a,tipo), con=d.socios.filter(s=>movil(s.telefono));
+  const ej=con[0], txt=ej?textoSMS($('#smsT').value,a,ej):'', n=txt.length, sms=con.reduce((x,s)=>x+trozos(textoSMS($('#smsT').value,a,s).length),0);
+  $('#smsInfo').innerHTML = `${n} caracteres (${trozos(n)} SMS por socio) · ${con.length} socios con móvil · unos ${sms} SMS, ≈ ${eur(Math.round(sms*0.06*100)/100)}${ej?`<br>Ejemplo: «${esc(txt)}»`:''}`;
+  $('#bSMS').textContent = `Enviar SMS a ${con.length} socios`; $('#bSMS').disabled=!con.length;
+}
+async function enviarSMS(anio,tipo){
+  const a=S.campanas.find(c=>c.anio===anio), d=destinatarios(a,tipo), con=d.socios.filter(s=>movil(s.telefono));
+  if(!confirm(`Se enviará un SMS a ${con.length} socios. ¿Continuar?`)) return;
+  const b=$('#bSMS'); b.disabled=true; b.textContent='Enviando…';
+  const envios=con.map(s=>({socio_id:s.id,texto:textoSMS($('#smsT').value,a,s)}));
+  const asunto=$('#avA').value.trim(), cuerpo=$('#avC').value;
+  let r; const {data,error}=await sb.functions.invoke('enviar-sms',{body:{anio,tipo,asunto,cuerpo,envios}});
+  r=data; if(error){ try{ r=await error.context.json(); }catch(e){ r={error:'No se ha podido enviar.'}; } }
+  if(r.error){ alert(r.error); contarSMS(anio,tipo); return; }
+  if(r.modo==='simulacion') alert(`MODO SIMULACIÓN: no se ha enviado ningún SMS porque falta conectar la cuenta de SMS.\n\nSe habrían enviado ${r.enviados}${r.fallidos.length?` y fallado ${r.fallidos.length}`:''}.`);
+  else { alert(`SMS enviados: ${r.enviados}.${r.fallidos.length?`\nNo enviados: ${r.fallidos.length} (${r.fallidos.slice(0,5).map(f=>(S.socio[f.socio_id]?.numero??'')+': '+f.motivo).join('; ')}${r.fallidos.length>5?'…':''}).`:''}`); await cargar(); }
+  contarSMS(anio,tipo);
+}
+async function copiar(sel){ const el=$(sel); try{ await navigator.clipboard.writeText(el.value); }catch(e){ el.select(); document.execCommand('copy'); } const b=event?.target; if(b){ const t=b.textContent; b.textContent='¡Copiado!'; setTimeout(()=>b.textContent=t,1200); } }
+async function copiarTxt(t,b){ try{ await navigator.clipboard.writeText(t); }catch(e){} const o=b.textContent; b.textContent='¡Copiado!'; setTimeout(()=>b.textContent=o,1200); }
+async function pagarTPV(cuota_id, metodo){
+  const {data,error}=await sb.functions.invoke('redsys-iniciar',{body:{cuota_id,metodo,volver:location.href}});
+  let r=data; if(error){ try{ r=await error.context.json(); }catch(e){ r={}; } }
+  if(!r||r.error||!r.url){ alert((r&&r.error)||'No se ha podido iniciar el pago. Inténtalo más tarde.'); return; }
+  if(r.entorno==='pruebas' && !confirm('El pago con tarjeta y Bizum está en MODO DE PRUEBAS: no se cobra dinero real y tu cuota no quedará pagada.\n\n¿Continuar?')) return;
+  const f=document.createElement('form'); f.method='POST'; f.action=r.url;
+  Object.entries(r.campos).forEach(([k,v])=>{ const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; f.appendChild(i); });
+  document.body.appendChild(f); f.submit();
+}
+async function yaPague(cuotaId,socioId){
+  if(!confirm('¿Confirmas que ya has hecho la transferencia? Avisaremos a la junta para que lo compruebe.')) return;
+  await q(sb.from('pagos_comunicados').insert({cuota_id:cuotaId,socio_id:socioId}));
+  await cargar(); vYo();
+}
+async function confirmarComunicado(id){
+  const pc=S.comunicados.find(x=>x.id===id);
+  await pagoManual(pc.cuota_id);
+  if(S.cuotas.find(c=>c.id===pc.cuota_id)?.estado==='pagada'){ await q(sb.from('pagos_comunicados').update({revisado:true}).eq('id',id)); await cargar(); if(dlg.open) dlg.close(); vCampana(); }
+}
+async function guardarMensajes(anio,tipo,ids,canal){
+  const a=S.campanas.find(c=>c.anio===anio), asunto=($('#avA')?.value||AVISOS[tipo].asunto(a)).trim(), cuerpo=($('#avC')?.value||AVISOS[tipo].cuerpo(a));
+  const filas=ids.map(id=>({socio_id:id,anio,tipo,canal,asunto,cuerpo:cuerpo+extraWA(a,S.socio[id])}));
+  for(let i=0;i<filas.length;i+=100) await q(sb.from('mensajes').upsert(filas.slice(i,i+100),{onConflict:'socio_id,anio,tipo',ignoreDuplicates:true}));
+}
+async function registrarWA(anio,tipo,id){ await guardarMensajes(anio,tipo,[id],'whatsapp'); }
+async function marcarAviso(anio,tipo,n){ const a=S.campanas.find(c=>c.anio===anio); await guardarMensajes(anio,tipo,destinatarios(a,tipo).socios.map(s=>s.id),'email'); await q(sb.from('avisos').insert({anio,tipo,destinatarios:n})); await log(null,'aviso enviado',`${AVISOS[tipo].t} ${anio}: ${n} emails`); dlg.close(); await cargar(); vCampana(); }
+async function generarCampana(a){ await generar(a,true); }
+async function editarCampana(anio){
+  const a=S.campanas.find(c=>c.anio===anio);
+  $('#dlgT').textContent=`Campaña ${anio}`;
+  $('#dlgB').innerHTML=`<div class="row"><div><label>Empieza</label><input id="cI" type="date" value="${a.inicio}"></div><div><label>Termina</label><input id="cF" type="date" value="${a.fin}"></div><div><label>Prórroga hasta (opcional)</label><input id="cP" type="date" value="${a.prorroga_hasta||''}"></div></div>
+    <label>Qué pasa si no se paga a tiempo</label><textarea id="cC" rows="3">${esc(a.consecuencia)}</textarea>
+    <label>Cuenta del club (IBAN)</label><input id="cIB" value="${esc(a.iban)}">
+    <label>Cómo pagar (texto de los avisos)</label><textarea id="cIP" rows="3">${esc(a.instrucciones_pago)}</textarea>
+    <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarCampana(${anio})">Guardar</button></div>`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarCampana(anio){ await q(sb.from('campanas').update({inicio:$('#cI').value,fin:$('#cF').value,prorroga_hasta:$('#cP').value||null,consecuencia:$('#cC').value.trim()||null,instrucciones_pago:$('#cIP').value.trim()||null,iban:$('#cIB').value.trim()||null}).eq('anio',anio)); dlg.close(); await cargar(); vCampana(); }
+async function nuevaCampana(){ const a=Math.max(...S.tarifas.map(t=>t.anio)); await q(sb.from('campanas').insert({anio:a,inicio:`${a-1}-12-01`,fin:`${a}-01-15`})); await cargar(); vCampana(); }
+
+// ---------- Sugerencias ----------
+const TEMAS={instalaciones:'Instalaciones y naves',actividades:'Actividades y salidas',cuotas:'Cuotas y pagos',web:'La web',otro:'Otro tema'};
+const EST_SUG={nueva:['Nueva','warn'],leida:['Leída',''],respondida:['Respondida','ok']};
+let filtroSug='todas';
+function tarjetaSug(x,gestor){
+  const s=S.socio[x.socio_id]||{}, e=EST_SUG[x.estado];
+  return `<div class="sug ${x.estado}"><div class="flex">${gestor?`${avatar(s)}<span class="num">${s.numero??''}</span><b class="grow">${esc(s.nombre)}</b>`:'<span class="grow"></span>'}<span class="tag">${TEMAS[x.tema]}</span><span class="tag ${e[1]}">${e[0]}</span></div>
+    <p class="muted" style="margin:8px 0 4px;font-size:13px">${new Date(x.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
+    <div class="txt">${esc(x.texto)}</div>
+    ${x.respuesta?`<div class="resp"><b>Respuesta de la junta</b>${x.respondida_en?` <span class="muted" style="font-size:13px">· ${new Date(x.respondida_en).toLocaleDateString('es-ES')}</span>`:''}<div class="txt">${esc(x.respuesta)}</div></div>`:''}
+    ${gestor?`<div class="flex" style="margin-top:10px">${x.estado==='nueva'?`<button class="btn sec small" onclick="estadoSug(${x.id},'leida')">Marcar como leída</button>`:''}<button class="btn small" onclick="responderSug(${x.id})">${x.respuesta?'Cambiar respuesta':'Responder'}</button></div>`:''}</div>`;
+}
+function vSugerencias(){
+  if(S.gestor){
+    const n=S.sugerencias.filter(x=>x.estado==='nueva').length;
+    const l=S.sugerencias.filter(x=>filtroSug==='todas'||x.estado===filtroSug);
+    $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Buzón de sugerencias ${n?`<span class="tag warn">${n===1?'1 nueva':n+' nuevas'}</span>`:''}</h2>
+      <select id="fSug" style="width:auto"><option value="todas">Todas</option><option value="nueva">Nuevas</option><option value="leida">Leídas</option><option value="respondida">Respondidas</option></select></div>
+      <p class="muted">Lo que los socios proponen desde su ficha. Tu respuesta les aparece debajo de su sugerencia.</p>
+      ${l.length?l.map(x=>tarjetaSug(x,true)).join(''):'<p class="muted">No hay sugerencias todavía.</p>'}</div>`;
+    $('#fSug').value=filtroSug; $('#fSug').onchange=e=>{filtroSug=e.target.value; vSugerencias();};
+    return;
+  }
+  const yo=S.socios[0];
+  if(!yo){ $('#main').innerHTML=`<div class="card"><h2>No encontramos tu ficha</h2><p>Tu email no coincide con el de ningún socio del club.</p></div>`; return; }
+  const mias=S.sugerencias.filter(x=>x.socio_id===yo.id);
+  $('#main').innerHTML=`<div class="card aviso-camp"><h2>¿Qué mejorarías del club?</h2>
+    <p style="margin-top:0">Cuéntanos tu idea, queja o propuesta. La lee la junta y te contestará aquí mismo.</p>
+    <label>Tema</label><select id="sTema">${Object.entries(TEMAS).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select>
+    <label>Tu sugerencia</label><textarea id="sTxt" rows="5" maxlength="3000" placeholder="Escribe aquí tu sugerencia…"></textarea>
+    <div class="flex" style="margin-top:12px"><button class="btn sun" onclick="enviarSug(${yo.id})">Enviar sugerencia</button><span id="sOk" class="muted"></span></div></div>
+    <div class="card"><h2>Mis sugerencias</h2>${mias.length?mias.map(x=>tarjetaSug(x,false)).join(''):'<p class="muted">Aún no has enviado ninguna.</p>'}</div>`;
+}
+async function enviarSug(socio_id){
+  const texto=$('#sTxt').value.trim(); if(texto.length<3){ $('#sOk').textContent='Escribe tu sugerencia antes de enviarla.'; return; }
+  await q(sb.from('sugerencias').insert({socio_id,tema:$('#sTema').value,texto}));
+  await cargar(); vSugerencias(); $('#sOk').textContent='¡Gracias! La junta la ha recibido.';
+}
+async function estadoSug(id,estado){ await q(sb.from('sugerencias').update({estado}).eq('id',id)); await cargar(); vSugerencias(); }
+async function responderSug(id){
+  const x=S.sugerencias.find(z=>z.id===id);
+  $('#dlgT').textContent='Responder sugerencia';
+  $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">${esc(S.socio[x.socio_id]?.nombre)} · ${TEMAS[x.tema]}</p><div class="txt" style="white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:12px">${esc(x.texto)}</div>
+    <label>Tu respuesta (la verá el socio en su ficha)</label><textarea id="rTxt" rows="5">${esc(x.respuesta)}</textarea>
+    <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarRespuesta(${id})">Enviar respuesta</button></div>`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarRespuesta(id){
+  const r=$('#rTxt').value.trim(); if(!r) return;
+  const x=S.sugerencias.find(z=>z.id===id);
+  await q(sb.from('sugerencias').update({respuesta:r,estado:'respondida',respondida_en:new Date().toISOString()}).eq('id',id));
+  await log(x.socio_id,'sugerencia respondida',r.slice(0,200));
+  dlg.close(); await cargar(); vSugerencias();
+}
+
+// ---------- Lista de espera ----------
+function vEspera(){
+  const libres=S.huecos.filter(h=>!h.socio_id), plazas=175-activos().length;
+  const bloque=(tipo,tit,desc)=>{const l=S.espera.filter(e=>e.tipo===tipo); return `<div class="card"><h2>${tit}</h2><p class="muted">${desc}</p><div class="tablewrap"><table><tr><th>#</th><th>Fecha</th><th>Nombre</th><th>Pide</th><th>Estado</th><th></th></tr>
+    ${l.map((e,i)=>`<tr><td>${i+1}</td><td>${fecha(e.fecha_peticion)}</td><td>${e.socio_id?`<a href="#" onclick="ficha(${e.socio_id});return false">${S.socio[e.socio_id]?.numero} · ${esc(e.nombre)}</a>`:esc(e.nombre)}${e.notas?`<br><span class="muted">${esc(e.notas)}</span>`:''}</td><td>${esc(e.nave_solicitada)}</td><td><select onchange="estadoEspera(${e.id},this.value)">${['esperando','ofrecido','asignado','retirado'].map(x=>`<option ${x===e.estado?'selected':''}>${x}</option>`).join('')}</select></td><td></td></tr>`).join('')}</table></div></div>`;};
+  $('#main').innerHTML = `<div class="card"><p>Huecos libres ahora: <b>${libres.length}</b> (${libres.map(h=>esc(S.nave[h.nave_id].nombre+' '+h.codigo)).join(', ')||'ninguno'}). Plazas de socio libres: <b>${plazas}</b>.</p>
+    <p class="muted">Un hueco libre se ofrece primero a la lista interna, por orden de fecha. Solo si nadie lo quiere pasa a la externa, y entonces solo si hay plaza de socio (máximo 175).</p>
+    <button class="btn" onclick="nuevaEspera()">Añadir a la lista</button></div>
+    ${bloque('interna','Lista interna (socios que piden otro hueco)','Tiene prioridad.')}
+    ${bloque('externa','Lista externa (aspirantes a socio)','Al entrar pagan la cuota de entrada.')}`;
+}
+async function estadoEspera(id,v){ await q(sb.from('lista_espera').update({estado:v}).eq('id',id)); await cargar(); }
+async function nuevaEspera(){
+  const num=prompt('Si ya es socio, escribe su número. Si no, déjalo vacío.');
+  let socio=null, nombre;
+  if(num){ socio=activos().find(s=>s.numero===Number(num)); if(!socio){ alert('No hay un socio activo con ese número.'); return; } nombre=socio.nombre; }
+  else { nombre=prompt('Nombre completo'); if(!nombre) return; }
+  const nave=prompt('¿Qué pide? (por ejemplo: Windsurf, Foil 4, Kayak)'); if(!nave) return;
+  const notas=socio?null:prompt('Teléfono o email de contacto (opcional)');
+  await q(sb.from('lista_espera').insert({tipo:socio?'interna':'externa',socio_id:socio?.id??null,nombre,nave_solicitada:nave,fecha_peticion:hoy(),notas}));
+  await cargar(); vEspera();
+}
+
+// ---------- Área del socio ----------
+function verComoSocio(id){
+  dlg.close(); document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('on'));
+  $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML='<button class="on">Mi ficha</button>'; vYo(id); window.scrollTo(0,0);
+}
+function volverPanel(){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
+function vYo(prev){
+  const yo=prev?S.socio[prev]:S.socios[0];
+  if(!yo){ $('#main').innerHTML=`<div class="card"><h2>No encontramos tu ficha</h2><p>Tu email no coincide con el de ningún socio del club. Escribe a la junta para que lo actualicen.</p></div>`; return; }
+  const hs=huecosDe(yo.id), cs=S.cuotas.filter(c=>c.socio_id===yo.id).sort((a,b)=>b.anio-a.anio);
+  const ret=new URLSearchParams(location.search).get('pago');
+  const avisoRet = ret==='ok' ? `<div class="card" style="background:var(--mint-l);border-color:var(--mint)"><b>¡Pago recibido!</b> Gracias. En unos segundos tu cuota aparecerá como pagada.</div>` : ret==='ko' ? `<div class="card" style="background:var(--coral-l);border-color:var(--coral)"><b>El pago no se ha completado.</b> No se te ha cobrado nada. Puedes intentarlo de nuevo o pagar por transferencia.</div>` : '';
+  const camp=campanaActual(), hh=hoy();
+  let avisoCamp='';
+  if(camp && hh>=sumaDias(camp.inicio,-30) && hh<=(camp.prorroga_hasta||camp.fin)){
+    const c=cs.find(x=>x.anio===camp.anio&&x.tipo==='anual'), t=tarifaDe(camp.anio);
+    const nh=hs.filter(h=>!h.cesion).length, est=t?(nh?nh*t.precio_hueco:t.cuota_patio):null;
+    const tit = hh<camp.inicio ? `Campaña de cuotas ${camp.anio}: empieza el ${fLarga(camp.inicio)}` : hh<=camp.fin ? `Campaña de cuotas ${camp.anio}: abierta hasta el ${fLarga(camp.fin)}` : `Campaña de cuotas ${camp.anio}: último plazo hasta el ${fLarga(camp.prorroga_hasta)}`;
+    const linea = c ? (c.estado==='pendiente' ? `Tu cuota ${camp.anio} es de <b>${eur(c.importe-c.descuento)}</b> y está pendiente.` : `Tu cuota ${camp.anio} está <b>${c.estado}</b>. ¡Gracias!`) : (est!==null?`Tu cuota ${camp.anio} será de unos <b>${eur(est)}</b> (${nh?`${nh} hueco${nh>1?'s':''} × ${eur(t.precio_hueco)}`:'cuota de patio'}).`:'');
+    const pc = c && S.comunicados.find(x=>x.cuota_id===c.id);
+    const imp = c ? Number(c.importe)-Number(c.descuento) : est;
+    const concepto = `Cuota ${camp.anio} · Socio ${yo.numero}`;
+    let pasos='';
+    if(!c || c.estado==='pendiente'){
+      const puede = c && !prev;
+      pasos = `<h3>Cómo pagar mi cuota${c?`: ${eur(imp)}`:''}</h3>
+        ${c?'':`<p class="muted" style="margin-top:0">Importe aproximado: ${eur(imp)}. Tu cuota exacta y los botones de pago aparecerán aquí el ${fLarga(camp.inicio)}.</p>`}
+        <div class="formas">
+          <div class="forma"><b>Opción 1 · Tarjeta o Bizum</b><p class="muted">Pagas al momento y tu cuota queda pagada sola.</p>
+            <div class="flex"><button class="btn" ${puede?`onclick="pagarTPV(${c.id},'tarjeta')"`:'disabled'}>Pagar con tarjeta</button><button class="btn bizum" ${puede?`onclick="pagarTPV(${c.id},'bizum')"`:'disabled'}>Pagar con Bizum</button></div></div>
+          <div class="forma"><b>Opción 2 · Transferencia</b>
+            <ol class="pasos-pago">
+              <li>Transfiere a la cuenta del club:${camp.iban?`<div class="copia"><code>${esc(camp.iban)}</code><button class="btn sec small" onclick="copiarTxt('${esc(camp.iban)}',this)">Copiar</button></div>`:''}</li>
+              <li>En el concepto escribe:<div class="copia"><code>${esc(concepto)}</code><button class="btn sec small" onclick="copiarTxt('${esc(concepto)}',this)">Copiar</button></div></li>
+              <li>Pulsa «Ya he pagado». Cuando la junta compruebe el ingreso, tu cuota pasará a «pagada».</li></ol>
+            ${pc ? `<p class="tag ok" style="font-size:15px;padding:8px 14px">Avisaste del pago el ${new Date(pc.fecha).toLocaleDateString('es-ES')}. La junta lo está comprobando.</p>`
+                 : `<button class="btn sun" ${puede?`onclick="yaPague(${c.id},${yo.id})"`:'disabled'}>Ya he pagado</button>`}</div>
+        </div>`;
+    }
+    avisoCamp=`<div class="card aviso-camp"><h2 style="margin-bottom:6px">${tit}</h2><p style="margin:0 0 8px">${linea}</p>${pasos}${(!c||c.estado==='pendiente')&&camp.consecuencia?`<p class="muted" style="margin:14px 0 0;font-size:14px">Si no se paga antes del ${fLarga(camp.fin)}: ${esc(camp.consecuencia)}</p>`:''}</div>`;
+  }
+  const ms=S.mensajes.filter(m=>m.socio_id===yo.id);
+  const misAvisos=`<div class="card"><h2>Mis avisos ${ms.filter(m=>!m.leido_en).length?`<span class="tag warn">${(n=>n===1?'1 nuevo':n+' nuevos')(ms.filter(m=>!m.leido_en).length)}</span>`:''}</h2>${ms.length?`<div class="avisos">${ms.map((m,i)=>`<details ${i===0?'open':''} class="${m.leido_en?'':'nuevo'}"><summary><span class="grow"><b>${esc(m.asunto)}</b><br><span class="muted" style="font-size:13px">${new Date(m.fecha).toLocaleDateString('es-ES')} · ${{whatsapp:'por WhatsApp',email:'por correo',web:'en la web'}[m.canal]}${m.por_sms?(m.canal==='web'?' y por SMS':' y SMS'):''}</span></span></summary><div class="txt">${esc(m.cuerpo)}</div></details>`).join('')}</div>`:'<p class="muted">Aquí verás los avisos que te mande el club.</p>'}</div>`;
+  if(!prev && ms.some(m=>!m.leido_en)) sb.rpc('marcar_mensajes_leidos');
+  const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):S.socios.slice(1);
+  $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email: solo su ficha, sin las pestañas del panel de gestión.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,52)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
+    <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
+    <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>
+    <div class="card"><h2>Mis huecos</h2>${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
+    <div class="card"><h2>Mis cuotas</h2><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
+    ${cs.map(c=>`<tr><td>${c.anio}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td><td>${c.estado==='pendiente'&&!prev?`<div class="flex"><button class="btn small" onclick="pagarTPV(${c.id},'tarjeta')">Tarjeta</button><button class="btn bizum small" onclick="pagarTPV(${c.id},'bizum')">Bizum</button></div>`:''}</td></tr>`).join('')}</table></div>
+    ${ms.some(m=>!m.leido_en)?'':misAvisos}
+    ${otros.length?`<p class="muted">Con este email también están: ${otros.map(o=>esc(o.nombre)).join(', ')}.</p>`:''}`;
+}
+</script>
+</body>
+</html>
