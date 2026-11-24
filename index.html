@@ -196,10 +196,11 @@ async function iniciar(session){
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
   $('#who').textContent = session.user.email;
   const {data:gestor} = await sb.rpc('es_gestor');
-  S.gestor = !!gestor;
+  S.gestor = !!gestor; S.previaEnc=null;
+  S.presidente = S.gestor ? !!(await sb.rpc('es_presidente')).data : false;
   if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['sugerencias','Sugerencias']];
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['sugerencias','Sugerencias']];
   TABS = tabs;
   $('#nav').innerHTML = tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('');
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
@@ -221,6 +222,7 @@ async function cargar(){
     q(sb.from('sugerencias').select('*').order('fecha',{ascending:false})),
   ]);
   Object.assign(S,{socios,naves,huecos,cuotas,pagos,tarifas,campanas,mensajes,comunicados,sugerencias});
+  S.cambios = (S.gestor||S.misNaves.length) ? await q(sb.from('cambios_nave').select('*').order('id',{ascending:false})) : [];
   if(S.gestor){
     S.encargados = await q(sb.from('encargados').select('*'));
     S.espera = await q(sb.from('lista_espera').select('*').order('fecha_peticion'));
@@ -233,7 +235,7 @@ async function cargar(){
 }
 function ir(k){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,sugerencias:vSugerencias,yo:vYo})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,sugerencias:vSugerencias,yo:vYo})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -258,7 +260,7 @@ function resumen(){
   const pend=cs.filter(c=>c.estado==='pendiente'), cobrado=S.pagos.filter(p=>p.fecha>=`${anio-1}-11-01`).reduce((a,p)=>a+Number(p.importe),0);
   const sinHueco=activos().filter(s=>!S.huecos.some(h=>h.socio_id===s.id));
   const porNave=S.naves.map(n=>{const oc=S.huecos.filter(h=>h.nave_id===n.id&&h.socio_id).length; return {n,oc};});
-  $('#main').innerHTML = `
+  $('#main').innerHTML = avisoValidar() + `
   <div class="kpis">
     <div class="kpi k1"><div class="ico">${ICO.socios}</div><span>Socios activos</span><b>${act} / 175</b><span>${175-act===0?'Club completo':(175-act)+' plazas libres'}</span></div>
     <div class="kpi k2"><div class="ico">${ICO.ok}</div><span>Cuotas ${anio} al día</span><b>${cs.filter(c=>c.estado!=='pendiente').length} / ${cs.length}</b><span>${pend.length?pend.length+' pendientes':'Ninguna pendiente'}</span></div>
@@ -369,16 +371,57 @@ function refrescar(){ if(S.vista) ir(S.vista); }
 
 // ---------- Naves ----------
 function vNaves(){
-  const lista = S.gestor ? S.naves : S.naves.filter(n=>S.misNaves.includes(n.id));
-  $('#main').innerHTML = (S.gestor?'':`<div class="card aviso-camp"><h2 style="margin-bottom:6px">Eres encargado de ${lista.map(n=>esc(n.nombre)).join(' y ')}</h2><p style="margin:0">Pulsa un hueco para asignarlo a un socio o liberarlo. También puedes cambiar la capacidad o añadir huecos. Los cambios quedan registrados.</p></div>`) + lista.map(n=>{
+  const enc = !S.gestor || !!S.previaEnc, misN = S.previaEnc || S.misNaves;
+  const lista = enc ? S.naves.filter(n=>misN.includes(n.id)) : S.naves;
+  const pendH = new Set((S.cambios||[]).filter(c=>c.estado==='pendiente'&&c.hueco_id).map(c=>c.hueco_id));
+  const enP = S.previaEnc && (S.encargados||[]).find(e=>e.nave_id===S.previaEnc[0]), sP = enP && S.socio[enP.socio_id];
+  const previa = S.previaEnc ? `<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${sP?esc(sP.nombre):'el encargado'} cuando entra con su email (además de su ficha de socio). Aquí no se envía nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>` : '';
+  const props = (S.cambios||[]).filter(c=>misN.includes(c.nave_id)).slice(0,30);
+  $('#main').innerHTML = previa + (enc?`<div class="card aviso-camp"><h2 style="margin-bottom:6px">Eres encargado de ${lista.map(n=>esc(n.nombre)).join(' y ')}</h2><p style="margin:0">Pulsa un hueco para proponer asignarlo a un socio o liberarlo. También puedes proponer cambiar la capacidad o añadir huecos. <b>Cada propuesta la tiene que validar el presidente</b>; hasta entonces no cambia nada.</p></div>`:'') + lista.map(n=>{
     const hs=S.huecos.filter(h=>h.nave_id===n.id).sort((a,b)=>a.codigo.localeCompare(b.codigo,'es',{numeric:true}));
     const oc=hs.filter(h=>h.socio_id).length;
     const en=(S.encargados||[]).find(e=>e.nave_id===n.id), es=en&&S.socio[en.socio_id];
     return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
-      ${S.gestor?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button></div>
-      ${S.gestor?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
-      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${S.gestor?(s?`ficha(${s.id})`:''):`huecoEnc(${h.id})`}" ${!S.gestor?'style="cursor:pointer"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}</div>`;}).join('')}</div></div>`;
-  }).join('');
+      ${!enc?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>${es?`<button class="btn sun small" onclick="verComoEncargado(${n.id})">Ver como el encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button>`:`<button class="btn sec small" onclick="proponerCapacidad(${n.id})">Capacidad</button><button class="btn sec small" onclick="proponerHueco(${n.id})">Añadir hueco</button>`}</div>
+      ${!enc?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
+      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:''):`huecoEnc(${h.id})`}" ${enc?'style="cursor:pointer"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div></div>`;
+  }).join('') + (enc?`<div class="card"><h2>Mis propuestas</h2>${props.length?props.map(c=>filaCambio(c,{anular:!S.previaEnc})).join(''):'<p class="muted">Todavía no has propuesto ningún cambio.</p>'}</div>`:'');
+}
+const ESTADO_CAMBIO={pendiente:['Pendiente del presidente','warn'],aprobado:['Aprobado','ok'],rechazado:['Rechazado','bad'],anulado:['Retirado','']};
+function filaCambio(c,o={}){
+  const [t,cl]=ESTADO_CAMBIO[c.estado]||[c.estado,''], quien=S.socio[c.solicitado_por];
+  const f=d=>d?new Date(d).toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';
+  return `<div class="flex" style="padding:10px 0;border-top:1px solid var(--line);align-items:flex-start"><div class="grow"><b>${esc(c.descripcion)}</b><br><span class="muted" style="font-size:13px">${o.quien&&quien?`Propuesto por ${esc(quien.nombre)} · `:''}${f(c.solicitado_en)}${c.comentario?` · «${esc(c.comentario)}»`:''}${c.motivo?` · Motivo: ${esc(c.motivo)}`:''}</span></div>
+    <span class="tag ${cl}">${t}</span>${c.estado==='pendiente'&&o.anular?`<button class="btn sec small" onclick="anularCambio(${c.id})">Retirar</button>`:''}${c.estado==='pendiente'&&o.validar?`<button class="btn small" onclick="resolverCambio(${c.id},true)">Aprobar</button><button class="btn sec small" onclick="resolverCambio(${c.id},false)">Rechazar</button>`:''}</div>`;
+}
+function verComoEncargado(naveId){
+  const en=(S.encargados||[]).find(e=>e.nave_id===naveId); S.previaEnc=(S.encargados||[]).filter(e=>e.socio_id===en.socio_id).map(e=>e.nave_id); document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('on'));
+  $('#rol').textContent='Vista previa: encargado de nave'; $('#nav').innerHTML=`<button>Mi ficha</button><button class="on">${S.previaEnc.length>1?'Mis naves':'Mi nave'}</button><button>Sugerencias</button>`; vNaves(); window.scrollTo(0,0);
+}
+async function proponer(args,texto){
+  if(S.previaEnc){ $('#dlgT').textContent='Vista previa'; $('#dlgB').innerHTML=`<p>Aquí el encargado enviaría al presidente esta propuesta:</p><p><b>${esc(texto)}</b></p><p class="muted">En la vista previa no se envía nada.</p>`; if(!dlg.open) dlg.showModal(); return; }
+  const comentario = prompt('Comentario para el presidente (opcional)') ?? '';
+  const {error}=await sb.rpc('proponer_cambio_nave',{...args,p_comentario:comentario});
+  if(error){ alert(error.message); return; }
+  dlg.close(); await cargar(); vNaves();
+  alert('Propuesta enviada. El presidente tiene que validarla.');
+}
+async function anularCambio(id){ if(!confirm('¿Retirar esta propuesta?')) return; await q(sb.rpc('anular_cambio_nave',{p_id:id})); await cargar(); vNaves(); }
+function proponerCapacidad(id){ const n=S.nave[id]; const c=prompt(`Nueva capacidad de ${n.nombre} (ahora ${n.capacidad})`,n.capacidad); if(!c||Number(c)===n.capacidad) return; proponer({p_tipo:'capacidad',p_nave:id,p_capacidad:Number(c)},`Cambiar la capacidad de ${n.nombre} de ${n.capacidad} a ${c}`); }
+function proponerHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c||!c.trim()) return; proponer({p_tipo:'nuevo_hueco',p_nave:id,p_codigo:c.trim()},`Añadir el hueco ${c.trim()} en ${S.nave[id].nombre}`); }
+function avisoValidar(){ const n=(S.cambios||[]).filter(c=>c.estado==='pendiente').length; if(!n) return ''; return `<div class="card aviso-camp"><div class="flex"><span class="grow"><b>${n===1?'Hay 1 cambio de encargado':'Hay '+n+' cambios de encargados'} por validar.</b> ${S.presidente?'Tienes que aprobarlos o rechazarlos tú.':'Los tiene que validar el presidente.'}</span><button class="btn small" onclick="ir('validar')">Ver</button></div></div>`; }
+function vValidar(){
+  const pend=(S.cambios||[]).filter(c=>c.estado==='pendiente'), res=(S.cambios||[]).filter(c=>c.estado!=='pendiente').slice(0,40);
+  $('#main').innerHTML = `<div class="card"><h2>Cambios por validar</h2><p class="muted" style="margin-top:0">Los encargados de nave proponen cambios en su nave. No se aplican hasta que el presidente los aprueba. ${S.presidente?'Tú eres quien los valida.':'Solo el presidente puede aprobarlos o rechazarlos; tú los ves para estar al tanto.'}</p>
+    ${pend.length?pend.map(c=>filaCambio(c,{quien:true,validar:S.presidente})).join(''):'<p class="muted">No hay nada pendiente.</p>'}</div>
+    <div class="card"><h2>Ya resueltos</h2>${res.length?res.map(c=>filaCambio(c,{quien:true})).join(''):'<p class="muted">Todavía no hay ninguno.</p>'}</div>`;
+}
+async function resolverCambio(id,aprobar){
+  const motivo = aprobar ? '' : (prompt('Motivo del rechazo (lo verá el encargado)') ?? null);
+  if(motivo===null) return;
+  const {error}=await sb.rpc('resolver_cambio_nave',{p_id:id,p_aprobar:aprobar,p_motivo:motivo});
+  if(error){ alert(error.message); return; }
+  await cargar(); vValidar();
 }
 function cambiarEncargado(naveId){
   const n=S.nave[naveId], en=(S.encargados||[]).find(e=>e.nave_id===naveId);
@@ -400,20 +443,22 @@ async function guardarEncargado(naveId){
 async function huecoEnc(hid){
   const h=S.huecos.find(x=>x.id===hid), n=S.nave[h.nave_id], s=h.socio_id&&S.socio[h.socio_id];
   $('#dlgT').textContent=`${n.nombre} · hueco ${h.codigo}`;
+  const pc=(S.cambios||[]).find(c=>c.hueco_id===hid&&c.estado==='pendiente');
+  if(pc){ $('#dlgB').innerHTML=`<p>Este hueco tiene una propuesta esperando al presidente:</p><p><b>${esc(pc.descripcion)}</b></p>${S.previaEnc?'':`<div class="flex"><button class="btn sec" onclick="dlg.close();anularCambio(${pc.id})">Retirar la propuesta</button></div>`}`; if(!dlg.open) dlg.showModal(); return; }
   if(h.socio_id){
     $('#dlgB').innerHTML=`<div class="pname">${s?avatar(s):''}<div><b>${esc(s?.nombre||'Socio')}</b><br><span class="muted">Socio ${s?.numero??''}${s?.telefono?' · '+esc(s.telefono):''}</span></div></div>
       ${h.cesion?'<p class="tag warn">Hueco de cesión</p>':''}
-      <div class="flex" style="margin-top:14px"><button class="btn sec" onclick="liberarEnc(${hid})">Liberar este hueco</button></div>`;
+      <div class="flex" style="margin-top:14px"><button class="btn sec" onclick="liberarEnc(${hid})">Proponer liberar este hueco</button></div>`;
   } else {
-    const {data}=await sb.rpc('socios_para_asignar');
-    $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">Este hueco está libre. Elige el socio al que se lo asignas.</p>
+    const data = S.previaEnc ? activos().map(x=>({id:x.id,numero:x.numero,nombre:x.nombre})) : (await sb.rpc('socios_para_asignar')).data;
+    $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">Este hueco está libre. Elige el socio al que quieres asignárselo; el presidente tendrá que validarlo.</p>
       <label>Socio</label><select id="asS"><option value="">Elige un socio…</option>${(data||[]).map(x=>`<option value="${x.id}">${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
-      <div class="flex" style="margin-top:12px"><button class="btn" onclick="asignarEnc(${hid})">Asignar</button></div>`;
+      <div class="flex" style="margin-top:12px"><button class="btn" onclick="asignarEnc(${hid})">Proponer al presidente</button></div>`;
   }
   if(!dlg.open) dlg.showModal();
 }
-async function asignarEnc(hid){ const id=Number($('#asS').value); if(!id) return; const h=S.huecos.find(x=>x.id===hid); await q(sb.from('huecos').update({socio_id:id}).eq('id',hid)); await log(id,'hueco asignado',`${S.nave[h.nave_id].nombre} ${h.codigo} (por el encargado)`); dlg.close(); await cargar(); vNaves(); }
-async function liberarEnc(hid){ if(!confirm('¿Liberar este hueco?')) return; const h=S.huecos.find(x=>x.id===hid); const sid=h.socio_id; await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('id',hid)); await log(sid,'hueco liberado',`${S.nave[h.nave_id].nombre} ${h.codigo} (por el encargado)`); dlg.close(); await cargar(); vNaves(); }
+function asignarEnc(hid){ const id=Number($('#asS').value); if(!id) return; const h=S.huecos.find(x=>x.id===hid), s=S.socio[id]||{nombre:$('#asS').selectedOptions[0].text}; proponer({p_tipo:'asignar',p_nave:h.nave_id,p_hueco:hid,p_socio:id},`Asignar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre} a ${s.nombre}`); }
+function liberarEnc(hid){ const h=S.huecos.find(x=>x.id===hid), s=S.socio[h.socio_id]; proponer({p_tipo:'liberar',p_nave:h.nave_id,p_hueco:hid},`Liberar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre}${s?', que ocupa '+s.nombre:''}`); }
 async function editarNave(id){ const n=S.nave[id]; const c=prompt(`Capacidad de ${n.nombre}`,n.capacidad); if(!c) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
 async function nuevoHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c.trim()})); await cargar(); vNaves(); }
 
@@ -684,7 +729,7 @@ function verComoSocio(id){
   dlg.close(); document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('on'));
   $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML='<button class="on">Mi ficha</button>'; vYo(id); window.scrollTo(0,0);
 }
-function volverPanel(){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
+function volverPanel(){ const deNaves=!!S.previaEnc; S.previaEnc=null; if(deNaves){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('naves'); return; } $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
 function vYo(prev){
   const mios=S.socios.filter(x=>(S.misIds||[]).includes(x.id));
   const yo=prev?S.socio[prev]:mios[0];
