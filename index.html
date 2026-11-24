@@ -117,6 +117,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
 .formas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:8px}
 .forma{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px}.forma p{margin:4px 0 10px;font-size:14px}
 .btn.bizum{background:#05c3de;box-shadow:0 2px 0 #0396ab}
+.encargado{display:flex;align-items:center;gap:4px;margin:-4px 0 14px;padding:10px 12px;border-radius:12px;background:var(--cl)}
 .aviso-camp{background:linear-gradient(120deg,var(--sun-l),var(--card));border-color:var(--sun)}
 .nave .cab .btn.sec{background:var(--card)}
 @media (max-width:600px){.who{display:none}.logo h1{font-size:18px}.kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi{padding:14px 12px}.kpi .ico{width:32px;height:32px;margin-bottom:6px}.kpi b{font-size:21px}.kpi span{font-size:13px}.ocup{grid-template-columns:70px 1fr 60px}th,td{padding:9px 8px}}
@@ -220,10 +221,12 @@ async function cargar(){
   ]);
   Object.assign(S,{socios,naves,huecos,cuotas,pagos,tarifas,campanas,mensajes,comunicados,sugerencias});
   if(S.gestor){
+    S.encargados = await q(sb.from('encargados').select('*'));
     S.espera = await q(sb.from('lista_espera').select('*').order('fecha_peticion'));
     S.avisos = await q(sb.from('avisos').select('*').order('id'));
     S.historial = await q(sb.from('historial').select('*').order('id',{ascending:false}));
   }
+  if(!S.gestor){ const {data}=await sb.rpc('encargados_mis_naves'); S.misEncargados=data||[]; }
   S.nave = Object.fromEntries(naves.map(n=>[n.id,n]));
   S.socio = Object.fromEntries(socios.map(s=>[s.id,s]));
 }
@@ -368,10 +371,29 @@ function vNaves(){
   $('#main').innerHTML = S.naves.map(n=>{
     const hs=S.huecos.filter(h=>h.nave_id===n.id).sort((a,b)=>a.codigo.localeCompare(b.codigo,'es',{numeric:true}));
     const oc=hs.filter(h=>h.socio_id).length;
+    const en=(S.encargados||[]).find(e=>e.nave_id===n.id), es=en&&S.socio[en.socio_id];
     return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
-      <button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button></div>
+      <button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button><button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button></div>
+      <div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>
       <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${s?`ficha(${s.id})`:''}"><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}</div>`;}).join('')}</div></div>`;
   }).join('');
+}
+function cambiarEncargado(naveId){
+  const n=S.nave[naveId], en=(S.encargados||[]).find(e=>e.nave_id===naveId);
+  const conHueco=new Set(S.huecos.filter(h=>h.nave_id===naveId&&h.socio_id).map(h=>h.socio_id));
+  const ops=activos().slice().sort((a,b)=>(conHueco.has(b.id)-conHueco.has(a.id))||a.numero-b.numero);
+  $('#dlgT').textContent=`Encargado de ${n.nombre}`;
+  $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">Primero aparecen los socios con hueco en esta nave.</p>
+    <label>Socio encargado</label><select id="enS">${ops.map(s=>`<option value="${s.id}" ${en&&en.socio_id===s.id?'selected':''}>${s.numero} · ${esc(s.nombre)}${conHueco.has(s.id)?' ★':''}</option>`).join('')}</select>
+    <label>Notas (opcional)</label><input id="enN" value="${esc(en?.notas&&en.notas!=='Importado de la Excel'?en.notas:'')}">
+    <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarEncargado(${naveId})">Guardar</button></div>`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarEncargado(naveId){
+  const socio_id=Number($('#enS').value), notas=$('#enN').value.trim()||null;
+  await q(sb.from('encargados').upsert({nave_id:naveId,socio_id,desde:hoy(),notas},{onConflict:'nave_id'}));
+  await log(socio_id,'encargado de nave',`${S.nave[naveId].nombre}`);
+  dlg.close(); await cargar(); vNaves();
 }
 async function editarNave(id){ const n=S.nave[id]; const c=prompt(`Capacidad de ${n.nombre}`,n.capacidad); if(!c) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
 async function nuevoHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c.trim()})); await cargar(); vNaves(); }
@@ -686,7 +708,7 @@ function vYo(prev){
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email: solo su ficha, sin las pestañas del panel de gestión.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,52)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
     <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>
-    <div class="card"><h2>Mis huecos</h2>${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
+    <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
     <div class="card"><h2>Mis cuotas</h2><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
     ${cs.map(c=>`<tr><td>${c.anio}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td><td>${c.estado==='pendiente'&&!prev?`<div class="flex"><button class="btn small" onclick="pagarTPV(${c.id},'tarjeta')">Tarjeta</button><button class="btn bizum small" onclick="pagarTPV(${c.id},'bizum')">Bizum</button></div>`:''}</td></tr>`).join('')}</table></div>
     ${ms.some(m=>!m.leido_en)?'':misAvisos}
