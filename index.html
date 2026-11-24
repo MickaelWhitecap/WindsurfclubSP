@@ -286,7 +286,7 @@ function vSocios(){
   if(filtro){ const f=filtro.toLowerCase(); lista=lista.filter(s=>[s.numero,s.nombre,s.email,s.dni,s.telefono,huecosTxt(s.id)].join(' ').toLowerCase().includes(f)); }
   lista.sort((a,b)=> orden==='nombre'? a.nombre.localeCompare(b.nombre,'es') : (a.numero-b.numero));
   $('#main').innerHTML = `<div class="card">
-    <div class="flex"><h2 class="grow" style="margin:0">Socios (${lista.length})</h2>
+    <div class="flex"><h2 class="grow" style="margin:0">Socios (${lista.length})</h2><button class="btn sun small" onclick="elegirVistaSocio()">Ver como un socio</button>
       <select id="fVer" style="width:auto"><option value="activo">Activos</option><option value="baja">Bajas</option><option value="todos">Todos</option></select>
       <button class="btn" onclick="ficha(null)" ${activos().length>=175?'disabled title="El club ya tiene 175 socios"':''}>Nuevo socio</button></div>
     <input id="fBus" placeholder="Buscar por nombre, número, email, DNI o hueco" style="margin:12px 0" value="${esc(filtro)}">
@@ -725,6 +725,13 @@ async function nuevaEspera(){
 }
 
 // ---------- Área del socio ----------
+function elegirVistaSocio(){
+  $('#dlgT').textContent='Ver la web como un socio';
+  $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">Elige un socio y verás exactamente lo que ve al entrar con su email: su ficha, sus cuotas, sus avisos y cómo pagar. No se cambia nada.</p>
+    <label>Socio</label><select id="vsS">${activos().slice().sort((a,b)=>a.numero-b.numero).map(x=>`<option value="${x.id}">${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
+    <div class="flex" style="margin-top:12px"><button class="btn sun" onclick="verComoSocio(Number($('#vsS').value))">Ver como este socio</button></div>`;
+  if(!dlg.open) dlg.showModal();
+}
 function verComoSocio(id){
   dlg.close(); document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('on'));
   $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML='<button class="on">Mi ficha</button>'; vYo(id); window.scrollTo(0,0);
