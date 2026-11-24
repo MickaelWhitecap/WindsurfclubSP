@@ -729,6 +729,7 @@ async function nuevaEspera(){
 
 // ---------- Junta directiva ----------
 const CARGOS=['Presidente','Presidenta','Vicepresidente','Vicepresidenta','Secretario','Secretaria','Tesorero','Tesorera','Vocal'];
+const ordenCargo=c=>{ c=(c||'').toLowerCase(); return c.startsWith('presiden')?10:c.startsWith('vicepres')?20:c.startsWith('secretar')?30:c.startsWith('tesor')?40:c.startsWith('vocal')?60:50; };
 function vJunta(){
   const ms=(S.junta||[]).map(j=>S.gestor?{...j,s:S.socio[j.socio_id]||{nombre:'¿?'}}:{...j,s:{nombre:j.nombre,numero:j.numero,telefono:j.telefono}});
   $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Junta directiva</h2>${S.gestor?'<button class="btn small" onclick="editarJunta()">Añadir miembro</button>':''}</div>
@@ -740,13 +741,12 @@ function editarJunta(id){
   $('#dlgT').textContent=id?'Cambiar miembro de la Junta':'Añadir miembro de la Junta';
   $('#dlgB').innerHTML=`<label>Cargo</label><input id="jC" list="jCargos" value="${esc(j.cargo)}"><datalist id="jCargos">${CARGOS.map(c=>`<option value="${c}">`).join('')}</datalist>
     <label>Socio</label><select id="jS">${activos().slice().sort((a,b)=>a.numero-b.numero).map(x=>`<option value="${x.id}" ${x.id===j.socio_id?'selected':''}>${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
-    <label>Orden en la lista (los números más bajos salen primero)</label><input id="jO" type="number" value="${j.orden}">
     <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="jT" type="checkbox" ${j.mostrar_telefono?'checked':''} style="width:auto"> Mostrar su teléfono a los socios</label>
     <div class="flex" style="margin-top:14px"><button class="btn" onclick="guardarJunta(${id||0})">Guardar</button>${id?`<button class="btn sec" onclick="quitarJunta(${id})">Quitar de la Junta</button>`:''}</div>`;
   if(!dlg.open) dlg.showModal();
 }
 async function guardarJunta(id){
-  const r={cargo:$('#jC').value.trim()||'Vocal',socio_id:Number($('#jS').value),orden:Number($('#jO').value)||50,mostrar_telefono:$('#jT').checked};
+  const r={cargo:$('#jC').value.trim()||'Vocal',socio_id:Number($('#jS').value),orden:ordenCargo($('#jC').value),mostrar_telefono:$('#jT').checked};
   if(id) await q(sb.from('junta').update(r).eq('id',id)); else { await q(sb.from('junta').insert({...r,desde:hoy()})); await log(r.socio_id,'Junta directiva',`Entra como ${r.cargo}`); }
   dlg.close(); await cargar(); vJunta();
 }
