@@ -59,7 +59,11 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
 .btn{background:var(--sea);color:#fff;border:0;border-radius:12px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 2px 0 var(--sea-d)}
 .btn:hover{filter:brightness(1.07)}.btn.sec{background:var(--sky);color:var(--sea-d);box-shadow:none}.btn.sun{background:var(--sun);color:#3b2600;box-shadow:0 2px 0 #d48f00}
-.btn.small{padding:6px 12px;font-size:14px;border-radius:10px}.btn:disabled{opacity:.45;cursor:default;filter:none}
+.btn.small{padding:6px 12px;font-size:14px;border-radius:10px}.btn.bad{background:var(--bad);box-shadow:0 2px 0 #a52f22}
+#dlg2{max-width:480px}#dlg2 .d2txt{white-space:pre-line;line-height:1.5}#dlg2 .d2bt{justify-content:flex-end;margin-top:6px}#dlg2 .err:empty{display:none}
+.priv{line-height:1.55}.priv h3{margin:16px 0 4px;font-size:16px}.priv p{margin:4px 0}
+.chk{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:14px}.chk input{width:auto;margin-top:3px}
+.pie{text-align:center;font-size:13px;padding:18px 16px 26px}.pie a{color:var(--muted)}.btn:disabled{opacity:.45;cursor:default;filter:none}
 .junta{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.miembro{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:800;background:var(--sky);color:var(--sea-d)}
 .tag.ok{background:var(--ok-l);color:var(--ok)}.tag.warn{background:var(--warn-l);color:var(--warn)}.tag.bad{background:var(--bad-l);color:var(--bad)}
@@ -132,6 +136,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <p class="muted" id="loginMsg">Entra con el email que tienes registrado en el club.</p>
     <label>Email</label><input id="lEmail" type="email" autocomplete="email" placeholder="tu@email.com">
     <label>Contraseña</label><input id="lPass" type="password" autocomplete="current-password" placeholder="Mínimo 8 caracteres">
+    <label class="chk"><input type="checkbox" id="lPriv"><span>He leído la <a href="#" onclick="event.preventDefault();verPrivacidad()">información sobre protección de datos</a>. Solo hace falta para crear tu acceso.</span></label>
     <div class="flex" style="margin-top:16px"><button class="btn" id="bEntrar">Entrar</button><button class="btn sun" id="bCrear">Crear mi acceso</button></div>
     <p class="muted" style="font-size:14px;margin-bottom:0">¿Primera vez? Escribe tu email y una contraseña nueva, y pulsa «Crear mi acceso».</p>
     <p><a href="#" id="bOlvido">He olvidado mi contraseña</a></p>
@@ -149,9 +154,11 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <nav id="nav"></nav>
   </header>
   <main id="main"></main>
+  <p class="pie"><a href="#" onclick="event.preventDefault();verPrivacidad()">Protección de datos</a></p>
 </div>
 
 <dialog id="dlg"><div class="hd"><h2 id="dlgT"></h2><button class="btn small" style="background:rgba(255,255,255,.22);box-shadow:none" onclick="dlg.close()">Cerrar</button></div><div class="bd" id="dlgB"></div></dialog>
+<dialog id="dlg2"><div class="hd"><h2 id="d2T"></h2></div><div class="bd" id="d2B"></div></dialog>
 
 <script>
 const SUPABASE_URL = 'https://rqchoprlrkxlcprdurpo.supabase.co';
@@ -165,20 +172,85 @@ const hoy = () => new Date().toISOString().slice(0,10);
 const ANIO = new Date().getFullYear();
 let S = {}, TABS = []; // datos en memoria
 
-async function q(p){ const {data,error} = await p; if(error){ alert('Error: '+error.message); throw error; } return data; }
+async function q(p){ const {data,error} = await p; if(error){ aviso(errorES(error.message),'No se ha podido hacer'); throw error; } return data; }
+
+// Traduce los mensajes técnicos (en inglés) a castellano. Los de nuestras funciones ya vienen en castellano.
+function errorES(m){
+  m=(m??'').toString(); const t=[
+    ['Invalid login credentials','Email o contraseña incorrectos.'],
+    ['Email not confirmed','Confirma primero tu email con el enlace que te enviamos.'],
+    ['User already registered','Ese email ya tiene acceso. Pulsa «Entrar» o «He olvidado mi contraseña».'],
+    ['Password should be','La contraseña no es válida: usa al menos 8 caracteres.'],
+    ['should be different','La nueva contraseña tiene que ser distinta de la anterior.'],
+    ['Unable to validate email','El email no es válido.'],
+    ['rate limit','Demasiados intentos seguidos. Espera unos minutos y vuelve a probar.'],
+    ['Error sending','No se ha podido enviar el email. Avisa a la junta.'],
+    ['duplicate key','Ese dato ya existe.'],
+    ['row-level security','No tienes permiso para hacer este cambio.'],
+    ['permission denied','No tienes permiso para hacer este cambio.'],
+    ['violates check constraint','Algún dato no es válido.'],
+    ['invalid input syntax','Algún dato no tiene el formato correcto.'],
+    ['JWT expired','Tu sesión ha caducado. Sal y vuelve a entrar.'],
+    ['Failed to fetch','No hay conexión. Revisa internet y vuelve a probar.'],
+    ['NetworkError','No hay conexión. Revisa internet y vuelve a probar.'],
+  ];
+  for(const [k,v] of t) if(m.toLowerCase().includes(k.toLowerCase())) return v;
+  if(/[áéíóúñ¿¡]|^(Solo|No |Ese|Esa|Ya |El |La |Hay )/i.test(m)) return m;
+  return 'Ha ocurrido un error. Vuelve a probar y, si se repite, avisa a la junta.'+(m?`\n\nDetalle técnico: ${m}`:'');
+}
+
+// ---------- Ventanas propias (en lugar de las del navegador) ----------
+// campos: [{label, valor, tipo:'text'|'number'|'password'|'email'|'area', opciones:[[valor,texto]], obligatorio, min, max, ayuda}]
+let colaV = Promise.resolve();
+function ventana(o){ const r = colaV.then(()=>ventana1(o)); colaV = r.catch(()=>{}); return r; }
+function ventana1({titulo='Aviso', texto='', html='', campos=[], ok='Aceptar', cancelar='Cancelar', peligro=false, validar=null}={}){
+  return new Promise(res=>{
+    const d=$('#dlg2'), hay=campos.length>0;
+    $('#d2T').textContent=titulo;
+    $('#d2B').innerHTML = (texto?`<div class="d2txt">${esc(texto)}</div>`:'') + html +
+      campos.map((c,i)=>{ const id='d2f'+i, v=esc(c.valor??'');
+        const ctl = c.opciones ? `<select id="${id}">${c.opciones.map(([k,t])=>`<option value="${esc(k)}"${String(k)===String(c.valor??'')?' selected':''}>${esc(t)}</option>`).join('')}</select>`
+          : c.tipo==='area' ? `<textarea id="${id}" rows="3" placeholder="${esc(c.ayuda||'')}">${v}</textarea>`
+          : `<input id="${id}" type="${c.tipo==='number'?'text':(c.tipo||'text')}" value="${v}" placeholder="${esc(c.ayuda||'')}"${c.tipo==='number'?' inputmode="decimal"':''}${c.tipo==='password'?' autocomplete="new-password"':''}>`;
+        return `<label for="${id}">${esc(c.label)}</label>${ctl}`; }).join('') +
+      `<p class="err" id="d2E"></p><div class="flex d2bt">${cancelar?`<button class="btn sec" id="d2No">${esc(cancelar)}</button>`:''}<button class="btn${peligro?' bad':''}" id="d2Si">${esc(ok)}</button></div>`;
+    let hecho=false; const fin=v=>{ if(hecho) return; hecho=true; d.close(); res(v); };
+    const leer=()=>campos.map((c,i)=>{ const x=$('#d2f'+i).value; if(c.tipo==='number'){ const t=x.trim().replace(',','.'); return t===''?null:Number(t); } return c.tipo==='password'?x:x.trim(); });
+    $('#d2Si').onclick=()=>{
+      const v=leer();
+      for(let i=0;i<campos.length;i++){ const c=campos[i], x=v[i];
+        if(c.obligatorio && (x===null||x==='')){ $('#d2E').textContent=`Rellena «${c.label}».`; $('#d2f'+i).focus(); return; }
+        if(c.tipo==='number' && x!==null && (Number.isNaN(x) || (c.min!=null&&x<c.min) || (c.max!=null&&x>c.max))){
+          $('#d2E').textContent=`«${c.label}» no es válido`+(c.min!=null&&c.max!=null?` (entre ${c.min} y ${c.max}).`:c.min!=null?` (mínimo ${c.min}).`:'.'); $('#d2f'+i).focus(); return; } }
+      const e=validar?validar(v):''; if(e){ $('#d2E').textContent=e; return; }
+      fin(hay?v:true);
+    };
+    if(cancelar) $('#d2No').onclick=()=>fin(hay?null:false);
+    d.oncancel=e=>{ e.preventDefault(); if(cancelar) fin(hay?null:false); };
+    d.querySelectorAll('input').forEach(el=>el.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#d2Si').click(); } });
+    d.showModal();
+    (hay?$('#d2f0'):$('#d2Si')).focus({preventScroll:true}); $('#d2B').scrollTop=0;
+  });
+}
+const aviso = (texto, titulo='Aviso') => ventana({titulo, texto, cancelar:null});
+const confirmar = (texto, {titulo='¿Seguro?', ok='Sí, continuar', cancelar='Cancelar', peligro=false}={}) => ventana({titulo, texto, ok, cancelar, peligro});
+// Un solo dato: devuelve el valor o null si se cancela
+async function pedir(titulo, campo, opts={}){ const r=await ventana({titulo, campos:[campo], ok:'Guardar', ...opts}); return r?r[0]:null; }
 
 // ---------- Acceso ----------
 $('#bEntrar').onclick = async () => {
   $('#lErr').textContent='';
   const {error} = await sb.auth.signInWithPassword({email:$('#lEmail').value.trim(), password:$('#lPass').value});
-  if(error) $('#lErr').textContent = error.message.includes('confirmed') ? 'Confirma primero tu email con el enlace que te enviamos.' : 'Email o contraseña incorrectos.';
+  if(error) $('#lErr').textContent = errorES(error.message);
 };
 $('#bCrear').onclick = async () => {
   $('#lErr').textContent='';
   const email=$('#lEmail').value.trim(), pass=$('#lPass').value;
+  if(!email){ $('#lErr').textContent='Escribe tu email.'; return; }
   if(pass.length<8){ $('#lErr').textContent='La contraseña debe tener al menos 8 caracteres.'; return; }
+  if(!$('#lPriv').checked){ $('#lErr').textContent='Para crear tu acceso, marca la casilla de protección de datos.'; return; }
   const {error} = await sb.auth.signUp({email, password:pass, options:{emailRedirectTo: location.origin+location.pathname}});
-  $('#lErr').textContent = error ? error.message : 'Te hemos enviado un email para confirmar tu acceso. Ábrelo y vuelve aquí para entrar.';
+  $('#lErr').textContent = error ? errorES(error.message) : 'Te hemos enviado un email para confirmar tu acceso. Ábrelo y vuelve aquí para entrar.';
 };
 $('#bOlvido').onclick = async e => {
   e.preventDefault();
@@ -189,9 +261,42 @@ $('#bOlvido').onclick = async e => {
 $('#bSalir').onclick = () => sb.auth.signOut();
 
 sb.auth.onAuthStateChange(async (ev, session) => {
-  if(ev==='PASSWORD_RECOVERY'){ const p=prompt('Escribe tu nueva contraseña (mínimo 8 caracteres)'); if(p) { await sb.auth.updateUser({password:p}); alert('Contraseña cambiada.'); } }
+  if(ev==='PASSWORD_RECOVERY') nuevaContrasena();
   if(session) iniciar(session); else { $('#app').classList.add('hidden'); $('#login').classList.remove('hidden'); }
 });
+
+async function nuevaContrasena(){
+  const r=await ventana({titulo:'Nueva contraseña', texto:'Escribe tu nueva contraseña dos veces. Debe tener al menos 8 caracteres.', ok:'Cambiar contraseña',
+    campos:[{label:'Nueva contraseña',tipo:'password',obligatorio:true},{label:'Repítela',tipo:'password',obligatorio:true}],
+    validar:([a,b])=> a.length<8 ? 'La contraseña debe tener al menos 8 caracteres.' : a!==b ? 'Las dos contraseñas no coinciden.' : ''});
+  if(!r) return;
+  const {error}=await sb.auth.updateUser({password:r[0]});
+  if(error){ await aviso(errorES(error.message),'No se ha cambiado'); return nuevaContrasena(); }
+  aviso('Tu contraseña está cambiada. La próxima vez entra con la nueva.','Contraseña cambiada');
+}
+
+// ---------- Protección de datos ----------
+const PRIV_VERSION='2026-11-24';
+const PRIV_HTML=`<div class="priv">
+<p>Esta información explica qué hace el club con tus datos, según el Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica 3/2018.</p>
+<h3>Quién es el responsable</h3><p>Windsurf Club Sancti Petri. Puedes escribirnos a <a href="mailto:windsurfclubsanctipetri@gmail.com">windsurfclubsanctipetri@gmail.com</a>.</p>
+<h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra y licencia federativa. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes.</p>
+<h3>Para qué los usamos</h3><p>Para gestionar tu condición de socio: asignar huecos, cobrar las cuotas, llevar las listas de espera y avisarte de lo que afecta al club por email, SMS o WhatsApp.</p>
+<h3>Por qué podemos usarlos</h3><p>Porque eres socio y los estatutos del club lo requieren (artículo 6.1.b del RGPD), y porque la asociación tiene obligaciones legales, como llevar el libro de socios y la contabilidad (artículo 6.1.c).</p>
+<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios solo ven los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
+<h3>Quién nos ayuda a guardarlos</h3><p>Supabase guarda la base de datos en servidores de la Unión Europea. Si pagas con tarjeta o Bizum, el pago lo tramitan Redsys y Unicaja. Los SMS los envía LabsMobile. No vendemos ni cedemos tus datos a nadie más, salvo que la ley lo obligue.</p>
+<h3>Cuánto tiempo</h3><p>Mientras seas socio. Después de la baja, solo el tiempo que exija la ley, por ejemplo para la contabilidad; luego se borran.</p>
+<h3>Tus derechos</h3><p>Puedes pedir ver, corregir o borrar tus datos, limitar u oponerte a su uso y llevártelos, escribiendo al email del club. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>).</p>
+</div>`;
+function verPrivacidad(){ return ventana({titulo:'Protección de datos', html:PRIV_HTML, ok:'Cerrar', cancelar:null}); }
+// Cada persona confirma una vez que ha leído la información (queda registrado con fecha)
+async function comprobarPrivacidad(){
+  if(S.privOk) return; S.privOk=true;
+  const {data,error}=await sb.from('aceptaciones_privacidad').select('id').eq('version',PRIV_VERSION).limit(1);
+  if(error || (data&&data.length)) return;
+  await ventana({titulo:'Protección de datos', html:'<p><b>Antes de seguir, lee cómo trata el club tus datos.</b></p>'+PRIV_HTML, ok:'He leído la información', cancelar:null});
+  await sb.from('aceptaciones_privacidad').insert({version:PRIV_VERSION});
+}
 
 async function iniciar(session){
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
@@ -207,6 +312,7 @@ async function iniciar(session){
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
   await cargar();
   ir(tabs[0][0]);
+  comprobarPrivacidad();
 }
 
 async function cargar(){
@@ -327,10 +433,10 @@ function ficha(id){
 async function guardarSocio(id){
   const v={}; CAMPOS.forEach(([k,,t])=>{ const x=$('#f_'+k).value.trim(); v[k]= x===''?null:(t==='number'?Number(x):x); }); v.notas=$('#f_notas').value.trim()||null;
   if(v.email) v.email=v.email.toLowerCase();
-  if(!v.nombre){ alert('Falta el nombre.'); return; }
+  if(!v.nombre){ aviso('Falta el nombre.'); return; }
   if(id){ await q(sb.from('socios').update(v).eq('id',id)); await log(id,'datos modificados',''); }
   else {
-    if(activos().length>=175){ alert('El club ya tiene 175 socios.'); return; }
+    if(activos().length>=175){ aviso('El club ya tiene 175 socios.'); return; }
     const [n]=await q(sb.from('socios').insert({...v,estado:'activo',tipo:'numerario'}).select());
     const t=S.tarifas.find(t=>t.anio===ANIO)||S.tarifas.at(-1);
     await q(sb.from('cuotas').insert({socio_id:n.id,anio:t.anio,tipo:'entrada',importe:t.cuota_entrada,estado:'pendiente'}));
@@ -339,23 +445,22 @@ async function guardarSocio(id){
   await cargar(); ficha(id); refrescar();
 }
 async function darBaja(id){
-  if(!confirm('¿Dar de baja a este socio? Sus huecos quedarán libres y su número podrá reasignarse.')) return;
+  if(!await confirmar('Sus huecos quedarán libres y su número podrá reasignarse.',{titulo:'¿Dar de baja a este socio?',ok:'Dar de baja',peligro:true})) return;
   await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('socio_id',id));
   await q(sb.from('socios').update({estado:'baja',fecha_baja:hoy()}).eq('id',id));
   await log(id,'baja','Baja del club; huecos liberados');
   await cargar(); dlg.close(); refrescar();
 }
 async function asignar(id){ const h=Number($('#nuevoHueco').value); if(!h) return; await q(sb.from('huecos').update({socio_id:id}).eq('id',h)); const x=S.huecos.find(z=>z.id===h); await log(id,'hueco asignado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
-async function liberar(h,id){ if(!confirm('¿Liberar este hueco?')) return; const x=S.huecos.find(z=>z.id===h); await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('id',h)); await log(id,'hueco liberado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
+async function liberar(h,id){ if(!await confirmar('El hueco quedará libre para asignarlo a otro socio.',{titulo:'¿Liberar este hueco?',ok:'Liberar'})) return; const x=S.huecos.find(z=>z.id===h); await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('id',h)); await log(id,'hueco liberado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
 async function nota(id){ const t=$('#nuevaNota').value.trim(); if(!t) return; await log(id,'nota',t); await cargar(); ficha(id); }
 async function log(socio_id,evento,detalle){ await q(sb.from('historial').insert({socio_id,evento,detalle})); }
 async function ajustarCuota(cuotaId){
   const c=S.cuotas.find(x=>x.id===cuotaId);
-  const d=prompt(`Cuota de ${eur(c.importe)}. ¿Cuántos euros regala el club? Escribe ${Number(c.importe)} para dejarla exenta, o 0 para quitar el descuento.`, Number(c.descuento)||0);
-  if(d===null) return; const v=Number(String(d).replace(',','.'));
-  if(!(v>=0 && v<=Number(c.importe))){ alert('El importe no es válido.'); return; }
-  const m=v>0?prompt('Motivo (por ejemplo: trabajos para el club)', c.motivo_exencion||''):'';
-  if(m===null) return;
+  const r=await ventana({titulo:`Descuento en la cuota de ${eur(c.importe)}`, texto:`Escribe ${Number(c.importe)} para dejarla exenta, o 0 para quitar el descuento.`, ok:'Guardar',
+    campos:[{label:'Euros que regala el club',tipo:'number',valor:Number(c.descuento)||0,obligatorio:true,min:0,max:Number(c.importe)},{label:'Motivo',valor:c.motivo_exencion||'',ayuda:'Por ejemplo: trabajos para el club'}],
+    validar:([v,m])=> v>0 && !m ? 'Escribe el motivo del descuento.' : ''});
+  if(!r) return; const v=r[0], m=v>0?r[1]:'';
   const exenta=v===Number(c.importe);
   await q(sb.from('cuotas').update({descuento:v, motivo_exencion:m||null, estado:exenta?'exenta':'pendiente'}).eq('id',cuotaId));
   await log(c.socio_id, exenta?'cuota exenta':'descuento', `${c.tipo} ${c.anio}: ${eur(v)}${m?' · '+m:''}`);
@@ -363,8 +468,7 @@ async function ajustarCuota(cuotaId){
 }
 async function pagoManual(cuotaId){
   const c=S.cuotas.find(x=>x.id===cuotaId);
-  const met=prompt('Método de pago: efectivo, transferencia, tarjeta o bizum','transferencia'); if(!met) return;
-  if(!['efectivo','transferencia','tarjeta','bizum'].includes(met.trim().toLowerCase())){ alert('Método no válido.'); return; }
+  const met=await pedir(`Anotar pago de ${eur(c.importe-c.descuento)}`,{label:'Cómo ha pagado',valor:'transferencia',opciones:[['transferencia','Transferencia'],['efectivo','Efectivo'],['bizum','Bizum'],['tarjeta','Tarjeta']]},{ok:'Anotar pago'}); if(!met) return;
   await q(sb.from('pagos').insert({cuota_id:c.id,socio_id:c.socio_id,fecha:hoy(),importe:c.importe-c.descuento,metodo:met.trim().toLowerCase()}));
   await q(sb.from('cuotas').update({estado:'pagada'}).eq('id',c.id));
   await log(c.socio_id,'pago anotado',`${c.tipo} ${c.anio}: ${eur(c.importe-c.descuento)} por ${met}`);
@@ -403,15 +507,16 @@ function verComoEncargado(naveId){
 }
 async function proponer(args,texto){
   if(S.previaEnc){ $('#dlgT').textContent='Vista previa'; $('#dlgB').innerHTML=`<p>Aquí el encargado enviaría al presidente esta propuesta:</p><p><b>${esc(texto)}</b></p><p class="muted">En la vista previa no se envía nada.</p>`; if(!dlg.open) dlg.showModal(); return; }
-  const comentario = prompt('Comentario para el presidente (opcional)') ?? '';
+  const comentario = await pedir('Enviar propuesta al presidente',{label:'Comentario para el presidente (opcional)',tipo:'area'},{texto:texto,ok:'Enviar propuesta'});
+  if(comentario===null) return;
   const {error}=await sb.rpc('proponer_cambio_nave',{...args,p_comentario:comentario});
-  if(error){ alert(error.message); return; }
+  if(error){ aviso(errorES(error.message),'No se ha enviado'); return; }
   dlg.close(); await cargar(); vNaves();
-  alert('Propuesta enviada. El presidente tiene que validarla.');
+  aviso('El presidente tiene que validarla. Mientras tanto no cambia nada.','Propuesta enviada');
 }
-async function anularCambio(id){ if(!confirm('¿Retirar esta propuesta?')) return; await q(sb.rpc('anular_cambio_nave',{p_id:id})); await cargar(); vNaves(); }
-function proponerCapacidad(id){ const n=S.nave[id]; const c=prompt(`Nueva capacidad de ${n.nombre} (ahora ${n.capacidad})`,n.capacidad); if(!c||Number(c)===n.capacidad) return; proponer({p_tipo:'capacidad',p_nave:id,p_capacidad:Number(c)},`Cambiar la capacidad de ${n.nombre} de ${n.capacidad} a ${c}`); }
-function proponerHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c||!c.trim()) return; proponer({p_tipo:'nuevo_hueco',p_nave:id,p_codigo:c.trim()},`Añadir el hueco ${c.trim()} en ${S.nave[id].nombre}`); }
+async function anularCambio(id){ if(!await confirmar('El presidente ya no la verá.',{titulo:'¿Retirar esta propuesta?',ok:'Retirar'})) return; await q(sb.rpc('anular_cambio_nave',{p_id:id})); await cargar(); vNaves(); }
+async function proponerCapacidad(id){ const n=S.nave[id]; const c=await pedir(`Capacidad de ${n.nombre}`,{label:`Nueva capacidad (ahora ${n.capacidad})`,tipo:'number',valor:n.capacidad,obligatorio:true,min:1,max:500},{ok:'Continuar'}); if(c===null||c===n.capacidad) return; proponer({p_tipo:'capacidad',p_nave:id,p_capacidad:Number(c)},`Cambiar la capacidad de ${n.nombre} de ${n.capacidad} a ${c}`); }
+async function proponerHueco(id){ const c=await pedir(`Nuevo hueco en ${S.nave[id].nombre}`,{label:'Código del hueco (número o letra)',obligatorio:true},{ok:'Continuar'}); if(!c) return; proponer({p_tipo:'nuevo_hueco',p_nave:id,p_codigo:c},`Añadir el hueco ${c} en ${S.nave[id].nombre}`); }
 function avisoValidar(){ const n=(S.cambios||[]).filter(c=>c.estado==='pendiente').length; if(!n) return ''; return `<div class="card aviso-camp"><div class="flex"><span class="grow"><b>${n===1?'Hay 1 cambio de encargado':'Hay '+n+' cambios de encargados'} por validar.</b> ${S.presidente?'Tienes que aprobarlos o rechazarlos tú.':'Los tiene que validar el presidente.'}</span><button class="btn small" onclick="ir('validar')">Ver</button></div></div>`; }
 function vValidar(){
   const pend=(S.cambios||[]).filter(c=>c.estado==='pendiente'), res=(S.cambios||[]).filter(c=>c.estado!=='pendiente').slice(0,40);
@@ -420,10 +525,10 @@ function vValidar(){
     <div class="card"><h2>Ya resueltos</h2>${res.length?res.map(c=>filaCambio(c,{quien:true})).join(''):'<p class="muted">Todavía no hay ninguno.</p>'}</div>`;
 }
 async function resolverCambio(id,aprobar){
-  const motivo = aprobar ? '' : (prompt('Motivo del rechazo (lo verá el encargado)') ?? null);
+  const motivo = aprobar ? '' : await pedir('Rechazar la propuesta',{label:'Motivo del rechazo (lo verá el encargado)',tipo:'area'},{ok:'Rechazar',peligro:true});
   if(motivo===null) return;
   const {error}=await sb.rpc('resolver_cambio_nave',{p_id:id,p_aprobar:aprobar,p_motivo:motivo});
-  if(error){ alert(error.message); return; }
+  if(error){ aviso(errorES(error.message),'No se ha podido validar'); return; }
   await cargar(); vValidar();
 }
 function cambiarEncargado(naveId){
@@ -462,8 +567,8 @@ async function huecoEnc(hid){
 }
 function asignarEnc(hid){ const id=Number($('#asS').value); if(!id) return; const h=S.huecos.find(x=>x.id===hid), s=S.socio[id]||{nombre:$('#asS').selectedOptions[0].text}; proponer({p_tipo:'asignar',p_nave:h.nave_id,p_hueco:hid,p_socio:id},`Asignar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre} a ${s.nombre}`); }
 function liberarEnc(hid){ const h=S.huecos.find(x=>x.id===hid), s=S.socio[h.socio_id]; proponer({p_tipo:'liberar',p_nave:h.nave_id,p_hueco:hid},`Liberar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre}${s?', que ocupa '+s.nombre:''}`); }
-async function editarNave(id){ const n=S.nave[id]; const c=prompt(`Capacidad de ${n.nombre}`,n.capacidad); if(!c) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
-async function nuevoHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c.trim()})); await cargar(); vNaves(); }
+async function editarNave(id){ const n=S.nave[id]; const c=await pedir(`Capacidad de ${n.nombre}`,{label:'Número de huecos',tipo:'number',valor:n.capacidad,obligatorio:true,min:1,max:500}); if(c===null) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
+async function nuevoHueco(id){ const c=await pedir(`Nuevo hueco en ${S.nave[id].nombre}`,{label:'Código del hueco (número o letra)',obligatorio:true},{ok:'Añadir'}); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c})); await cargar(); vNaves(); }
 
 // ---------- Cuotas ----------
 let anioC=null;
@@ -483,9 +588,9 @@ function vCuotas(){
     ${cs.map(c=>{const s=S.socio[c.socio_id]; return `<tr class="click" onclick="ficha(${c.socio_id})"><td>${s?.numero??''}</td><td>${esc(s?.nombre)}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td></tr>`;}).join('')}</table></div></div>`;
   $('#selA').onchange=e=>{anioC=Number(e.target.value);vCuotas();};
 }
-async function generar(a,camp){ if(!confirm(`Se creará la cuota anual de ${a} para cada socio activo que aún no la tenga. ¿Continuar?`)) return; const n=await q(sb.rpc('generar_cuotas',{p_anio:a})); alert(`${n} cuotas creadas.`); await cargar(); camp?vCampana():vCuotas(); }
-async function editarTarifa(a){ const t=S.tarifas.find(x=>x.anio===a); const p=prompt('Precio por hueco (€)',t.precio_hueco); if(p===null) return; const pa=prompt('Cuota sin hueco / patio (€)',t.cuota_patio); if(pa===null) return; const e=prompt('Cuota de entrada (€)',t.cuota_entrada); if(e===null) return; await q(sb.from('tarifas').update({precio_hueco:p,cuota_patio:pa,cuota_entrada:e}).eq('anio',a)); await cargar(); vCuotas(); }
-async function nuevaTarifa(){ const a=Number(prompt('Año de la nueva tarifa',Math.max(...S.tarifas.map(t=>t.anio))+1)); if(!a) return; const u=S.tarifas.at(-1); await q(sb.from('tarifas').insert({anio:a,precio_hueco:u.precio_hueco,cuota_patio:u.cuota_patio,cuota_entrada:u.cuota_entrada})); anioC=a; await cargar(); vCuotas(); }
+async function generar(a,camp){ if(!await confirmar(`Se creará la cuota anual de ${a} para cada socio activo que aún no la tenga.`,{titulo:`¿Generar las cuotas ${a}?`,ok:'Generar cuotas'})) return; const n=await q(sb.rpc('generar_cuotas',{p_anio:a})); aviso(`${n} cuotas creadas.`,'Cuotas generadas'); await cargar(); camp?vCampana():vCuotas(); }
+async function editarTarifa(a){ const t=S.tarifas.find(x=>x.anio===a); const r=await ventana({titulo:`Tarifa ${a}`,ok:'Guardar',campos:[{label:'Precio por hueco (€)',tipo:'number',valor:t.precio_hueco,obligatorio:true,min:0},{label:'Cuota sin hueco / patio (€)',tipo:'number',valor:t.cuota_patio,obligatorio:true,min:0},{label:'Cuota de entrada (€)',tipo:'number',valor:t.cuota_entrada,obligatorio:true,min:0}]}); if(!r) return; const [p,pa,e]=r; await q(sb.from('tarifas').update({precio_hueco:p,cuota_patio:pa,cuota_entrada:e}).eq('anio',a)); await cargar(); vCuotas(); }
+async function nuevaTarifa(){ const a=await pedir('Nueva tarifa',{label:'Año',tipo:'number',valor:Math.max(...S.tarifas.map(t=>t.anio))+1,obligatorio:true,min:2020,max:2100},{texto:'Copia los importes de la última tarifa. Después puedes cambiarlos.',ok:'Crear',validar:([x])=>S.tarifas.some(t=>t.anio===x)?'Ya hay una tarifa para ese año.':''}); if(!a) return; const u=S.tarifas.at(-1); await q(sb.from('tarifas').insert({anio:a,precio_hueco:u.precio_hueco,cuota_patio:u.cuota_patio,cuota_entrada:u.cuota_entrada})); anioC=a; await cargar(); vCuotas(); }
 
 // ---------- Campaña de cuotas ----------
 const fLarga = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}) : '';
@@ -596,15 +701,15 @@ function contarSMS(anio,tipo){
 }
 async function enviarSMS(anio,tipo){
   const a=S.campanas.find(c=>c.anio===anio), d=destinatarios(a,tipo), con=d.socios.filter(s=>movil(s.telefono));
-  if(!confirm(`Se enviará un SMS a ${con.length} socios. ¿Continuar?`)) return;
+  if(!await confirmar(`Se enviará un SMS a ${con.length} socios.`,{titulo:'¿Enviar los SMS?',ok:'Enviar SMS'})) return;
   const b=$('#bSMS'); b.disabled=true; b.textContent='Enviando…';
   const envios=con.map(s=>({socio_id:s.id,texto:textoSMS($('#smsT').value,a,s)}));
   const asunto=$('#avA').value.trim(), cuerpo=$('#avC').value;
   let r; const {data,error}=await sb.functions.invoke('enviar-sms',{body:{anio,tipo,asunto,cuerpo,envios}});
   r=data; if(error){ try{ r=await error.context.json(); }catch(e){ r={error:'No se ha podido enviar.'}; } }
-  if(r.error){ alert(r.error); contarSMS(anio,tipo); return; }
-  if(r.modo==='simulacion') alert(`MODO SIMULACIÓN: no se ha enviado ningún SMS porque falta conectar la cuenta de SMS.\n\nSe habrían enviado ${r.enviados}${r.fallidos.length?` y fallado ${r.fallidos.length}`:''}.`);
-  else { alert(`SMS enviados: ${r.enviados}.${r.fallidos.length?`\nNo enviados: ${r.fallidos.length} (${r.fallidos.slice(0,5).map(f=>(S.socio[f.socio_id]?.numero??'')+': '+f.motivo).join('; ')}${r.fallidos.length>5?'…':''}).`:''}`); await cargar(); }
+  if(r.error){ aviso(errorES(r.error),'No se han enviado'); contarSMS(anio,tipo); return; }
+  if(r.modo==='simulacion') aviso(`No se ha enviado ningún SMS porque falta conectar la cuenta de SMS.\n\nSe habrían enviado ${r.enviados}${r.fallidos.length?` y fallado ${r.fallidos.length}`:''}.`,'Modo simulación');
+  else { aviso(`SMS enviados: ${r.enviados}.${r.fallidos.length?`\nNo enviados: ${r.fallidos.length} (${r.fallidos.slice(0,5).map(f=>(S.socio[f.socio_id]?.numero??'')+': '+f.motivo).join('; ')}${r.fallidos.length>5?'…':''}).`:''}`,'SMS enviados'); await cargar(); }
   contarSMS(anio,tipo);
 }
 async function copiar(sel){ const el=$(sel); try{ await navigator.clipboard.writeText(el.value); }catch(e){ el.select(); document.execCommand('copy'); } const b=event?.target; if(b){ const t=b.textContent; b.textContent='¡Copiado!'; setTimeout(()=>b.textContent=t,1200); } }
@@ -612,14 +717,14 @@ async function copiarTxt(t,b){ try{ await navigator.clipboard.writeText(t); }cat
 async function pagarTPV(cuota_id, metodo){
   const {data,error}=await sb.functions.invoke('redsys-iniciar',{body:{cuota_id,metodo,volver:location.href}});
   let r=data; if(error){ try{ r=await error.context.json(); }catch(e){ r={}; } }
-  if(!r||r.error||!r.url){ alert((r&&r.error)||'No se ha podido iniciar el pago. Inténtalo más tarde.'); return; }
-  if(r.entorno==='pruebas' && !confirm('El pago con tarjeta y Bizum está en MODO DE PRUEBAS: no se cobra dinero real y tu cuota no quedará pagada.\n\n¿Continuar?')) return;
+  if(!r||r.error||!r.url){ aviso(r&&r.error?errorES(r.error):'No se ha podido iniciar el pago. Inténtalo más tarde.','No se ha podido pagar'); return; }
+  if(r.entorno==='pruebas' && !await confirmar('El pago con tarjeta y Bizum está en pruebas: no se cobra dinero real y tu cuota no quedará pagada.',{titulo:'Modo de pruebas',ok:'Continuar'})) return;
   const f=document.createElement('form'); f.method='POST'; f.action=r.url;
   Object.entries(r.campos).forEach(([k,v])=>{ const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; f.appendChild(i); });
   document.body.appendChild(f); f.submit();
 }
 async function yaPague(cuotaId,socioId){
-  if(!confirm('¿Confirmas que ya has hecho la transferencia? Avisaremos a la junta para que lo compruebe.')) return;
+  if(!await confirmar('Avisaremos a la junta para que compruebe el ingreso en el banco.',{titulo:'¿Ya has hecho la transferencia?',ok:'Sí, ya he pagado'})) return;
   await q(sb.from('pagos_comunicados').insert({cuota_id:cuotaId,socio_id:socioId}));
   await cargar(); vYo();
 }
@@ -717,12 +822,12 @@ function vEspera(){
 }
 async function estadoEspera(id,v){ await q(sb.from('lista_espera').update({estado:v}).eq('id',id)); await cargar(); }
 async function nuevaEspera(){
-  const num=prompt('Si ya es socio, escribe su número. Si no, déjalo vacío.');
-  let socio=null, nombre;
-  if(num){ socio=activos().find(s=>s.numero===Number(num)); if(!socio){ alert('No hay un socio activo con ese número.'); return; } nombre=socio.nombre; }
-  else { nombre=prompt('Nombre completo'); if(!nombre) return; }
-  const nave=prompt('¿Qué pide? (por ejemplo: Windsurf, Foil 4, Kayak)'); if(!nave) return;
-  const notas=socio?null:prompt('Teléfono o email de contacto (opcional)');
+  const r=await ventana({titulo:'Añadir a la lista de espera', texto:'Si ya es socio, escribe su número y deja el nombre vacío. Si no es socio, deja el número vacío.', ok:'Añadir',
+    campos:[{label:'Nº de socio',tipo:'number',min:1},{label:'Nombre completo (si no es socio)'},{label:'Qué pide',obligatorio:true,ayuda:'Por ejemplo: Windsurf, Foil 4, Kayak'},{label:'Teléfono o email de contacto (opcional)'}],
+    validar:([n,nom])=> n!==null ? (activos().some(s=>s.numero===n)?'':'No hay un socio activo con ese número.') : (nom?'':'Escribe el número de socio o el nombre.')});
+  if(!r) return;
+  const socio = r[0]!==null ? activos().find(s=>s.numero===r[0]) : null;
+  const nombre = socio ? socio.nombre : r[1], nave = r[2], notas = socio ? null : (r[3]||null);
   await q(sb.from('lista_espera').insert({tipo:socio?'interna':'externa',socio_id:socio?.id??null,nombre,nave_solicitada:nave,fecha_peticion:hoy(),notas}));
   await cargar(); vEspera();
 }
@@ -753,7 +858,7 @@ async function guardarJunta(id){
   if(antes&&antes.socio_id&&antes.socio_id!==r.socio_id) await log(antes.socio_id,'Junta directiva',`Deja el cargo de ${antes.cargo}`);
   dlg.close(); await cargar(); vJunta();
 }
-async function quitarJunta(id){ const j=S.junta.find(x=>x.id===id); if(!confirm(`¿Eliminar el cargo «${j.cargo}» de la Junta?`)) return; await q(sb.from('junta_cargos').delete().eq('id',id)); if(j.socio_id) await log(j.socio_id,'Junta directiva',`Deja el cargo de ${j.cargo}`); dlg.close(); await cargar(); vJunta(); }
+async function quitarJunta(id){ const j=S.junta.find(x=>x.id===id); if(!await confirmar('El cargo desaparecerá de la lista de la Junta.',{titulo:`¿Eliminar el cargo «${j.cargo}»?`,ok:'Eliminar',peligro:true})) return; await q(sb.from('junta_cargos').delete().eq('id',id)); if(j.socio_id) await log(j.socio_id,'Junta directiva',`Deja el cargo de ${j.cargo}`); dlg.close(); await cargar(); vJunta(); }
 
 // ---------- Área del socio ----------
 function elegirVistaSocio(){
