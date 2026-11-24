@@ -231,8 +231,8 @@ async function cargar(){
     S.historial = await q(sb.from('historial').select('*').order('id',{ascending:false}));
   }
   if(!S.gestor){ const {data}=await sb.rpc('encargados_de_mis_naves'); S.misEncargados=data||[]; }
-  if(S.gestor){ S.junta = await q(sb.from('junta').select('*').order('orden').order('id')); }
-  else { const {data}=await sb.rpc('junta_directiva'); S.junta=data||[]; }
+  if(S.gestor){ S.junta = await q(sb.from('junta_cargos').select('*').order('orden').order('id')); }
+  else { const {data}=await sb.rpc('junta_directiva_cargos'); S.junta=data||[]; }
   S.nave = Object.fromEntries(naves.map(n=>[n.id,n]));
   S.socio = Object.fromEntries(socios.map(s=>[s.id,s]));
 }
@@ -731,26 +731,29 @@ async function nuevaEspera(){
 const CARGOS=['Presidente','Presidenta','Vicepresidente','Vicepresidenta','Secretario','Secretaria','Tesorero','Tesorera','Vocal'];
 const ordenCargo=c=>{ c=(c||'').toLowerCase(); return c.startsWith('presiden')?10:c.startsWith('vicepres')?20:c.startsWith('secretar')?30:c.startsWith('tesor')?40:c.startsWith('vocal')?60:50; };
 function vJunta(){
-  const ms=(S.junta||[]).map(j=>S.gestor?{...j,s:S.socio[j.socio_id]||{nombre:'¿?'}}:{...j,s:{nombre:j.nombre,numero:j.numero,telefono:j.telefono}});
-  $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Junta directiva</h2>${S.gestor?'<button class="btn small" onclick="editarJunta()">Añadir miembro</button>':''}</div>
+  const ms=(S.junta||[]).map(j=>{ const s=S.gestor?S.socio[j.socio_id]:(j.nombre?{nombre:j.nombre,numero:j.numero,telefono:j.telefono}:null); return {...j,s,vac:!s}; });
+  $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Junta directiva</h2>${S.gestor?'<button class="btn small" onclick="editarJunta()">Añadir cargo</button>':''}</div>
     <p class="muted">${S.gestor?'Los socios ven esta lista en su pestaña «Junta directiva», con el teléfono de quien lo tenga permitido.':'Las personas que dirigen el club. Si necesitas algo, puedes llamarlas o escribir una sugerencia.'}</p>
-    ${ms.length?`<div class="junta">${ms.map(j=>`<div class="miembro">${avatar(j.s,48)}<div class="grow"><span class="tag">${esc(j.cargo)}</span><br><b>${esc(j.s.nombre)}</b><br><span class="muted" style="font-size:14px">Socio ${j.s.numero??''}${(S.gestor?(j.mostrar_telefono&&j.s.telefono):j.telefono)?` · <a href="tel:${esc(String(j.s.telefono).replace(/\s/g,''))}">${esc(j.s.telefono)}</a>`:''}${S.gestor&&!j.mostrar_telefono?' · teléfono oculto a los socios':''}</span></div>${S.gestor?`<button class="btn sec small" onclick="editarJunta(${j.id})">Cambiar</button>`:''}</div>`).join('')}</div>`:'<p class="muted">Todavía no hay nadie en la lista.</p>'}</div>`;
+    ${ms.length?`<div class="junta">${ms.map(j=>`<div class="miembro" ${j.vac?'style="border-style:dashed"':''}>${j.vac?'<span class="av" style="background:var(--line);color:var(--muted);width:48px;height:48px;font-size:20px">?</span>':avatar(j.s,48)}<div class="grow"><span class="tag">${esc(j.cargo)}</span><br>${j.vac?'<b class="muted">Sin designar</b>':`<b>${esc(j.s.nombre)}</b><br><span class="muted" style="font-size:14px">Socio ${j.s.numero??''}${(S.gestor?(j.mostrar_telefono&&j.s.telefono):j.telefono)?` · <a href="tel:${esc(String(j.s.telefono).replace(/\s/g,''))}">${esc(j.s.telefono)}</a>`:''}${S.gestor&&!j.mostrar_telefono?' · teléfono oculto a los socios':''}</span>`}</div>${S.gestor?`<button class="btn sec small" onclick="editarJunta(${j.id})">${j.vac?'Designar':'Cambiar'}</button>`:''}</div>`).join('')}</div>`:'<p class="muted">Todavía no hay nadie en la lista.</p>'}</div>`;
 }
 function editarJunta(id){
   const j=id?S.junta.find(x=>x.id===id):{cargo:'Vocal',socio_id:null,orden:((S.junta||[]).length+1)*10,mostrar_telefono:true};
-  $('#dlgT').textContent=id?'Cambiar miembro de la Junta':'Añadir miembro de la Junta';
+  $('#dlgT').textContent=id?`${j.cargo} de la Junta`:'Añadir un cargo a la Junta';
   $('#dlgB').innerHTML=`<label>Cargo</label><input id="jC" list="jCargos" value="${esc(j.cargo)}"><datalist id="jCargos">${CARGOS.map(c=>`<option value="${c}">`).join('')}</datalist>
-    <label>Socio</label><select id="jS">${activos().slice().sort((a,b)=>a.numero-b.numero).map(x=>`<option value="${x.id}" ${x.id===j.socio_id?'selected':''}>${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
+    <label>Socio</label><select id="jS"><option value="">— Sin designar todavía —</option>${activos().slice().sort((a,b)=>a.numero-b.numero).map(x=>`<option value="${x.id}" ${x.id===j.socio_id?'selected':''}>${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
     <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="jT" type="checkbox" ${j.mostrar_telefono?'checked':''} style="width:auto"> Mostrar su teléfono a los socios</label>
-    <div class="flex" style="margin-top:14px"><button class="btn" onclick="guardarJunta(${id||0})">Guardar</button>${id?`<button class="btn sec" onclick="quitarJunta(${id})">Quitar de la Junta</button>`:''}</div>`;
+    <div class="flex" style="margin-top:14px"><button class="btn" onclick="guardarJunta(${id||0})">Guardar</button>${id?`<button class="btn sec" onclick="quitarJunta(${id})">Eliminar este cargo</button>`:''}</div>`;
   if(!dlg.open) dlg.showModal();
 }
 async function guardarJunta(id){
-  const r={cargo:$('#jC').value.trim()||'Vocal',socio_id:Number($('#jS').value),orden:ordenCargo($('#jC').value),mostrar_telefono:$('#jT').checked};
-  if(id) await q(sb.from('junta').update(r).eq('id',id)); else { await q(sb.from('junta').insert({...r,desde:hoy()})); await log(r.socio_id,'Junta directiva',`Entra como ${r.cargo}`); }
+  const r={cargo:$('#jC').value.trim()||'Vocal',socio_id:Number($('#jS').value)||null,orden:ordenCargo($('#jC').value),mostrar_telefono:$('#jT').checked};
+  const antes=id&&S.junta.find(x=>x.id===id);
+  if(id) await q(sb.from('junta_cargos').update(antes.socio_id!==r.socio_id?{...r,desde:r.socio_id?hoy():null}:r).eq('id',id)); else await q(sb.from('junta_cargos').insert({...r,desde:r.socio_id?hoy():null}));
+  if(r.socio_id&&(!antes||antes.socio_id!==r.socio_id)) await log(r.socio_id,'Junta directiva',`Entra como ${r.cargo}`);
+  if(antes&&antes.socio_id&&antes.socio_id!==r.socio_id) await log(antes.socio_id,'Junta directiva',`Deja el cargo de ${antes.cargo}`);
   dlg.close(); await cargar(); vJunta();
 }
-async function quitarJunta(id){ const j=S.junta.find(x=>x.id===id); if(!confirm('¿Quitar a esta persona de la Junta?')) return; await q(sb.from('junta').delete().eq('id',id)); await log(j.socio_id,'Junta directiva',`Deja el cargo de ${j.cargo}`); dlg.close(); await cargar(); vJunta(); }
+async function quitarJunta(id){ const j=S.junta.find(x=>x.id===id); if(!confirm(`¿Eliminar el cargo «${j.cargo}» de la Junta?`)) return; await q(sb.from('junta_cargos').delete().eq('id',id)); if(j.socio_id) await log(j.socio_id,'Junta directiva',`Deja el cargo de ${j.cargo}`); dlg.close(); await cargar(); vJunta(); }
 
 // ---------- Área del socio ----------
 function elegirVistaSocio(){
