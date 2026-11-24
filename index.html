@@ -197,8 +197,9 @@ async function iniciar(session){
   $('#who').textContent = session.user.email;
   const {data:gestor} = await sb.rpc('es_gestor');
   S.gestor = !!gestor;
+  if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],['sugerencias','Sugerencias']];
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['sugerencias','Sugerencias']];
   TABS = tabs;
   $('#nav').innerHTML = tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('');
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
@@ -226,13 +227,13 @@ async function cargar(){
     S.avisos = await q(sb.from('avisos').select('*').order('id'));
     S.historial = await q(sb.from('historial').select('*').order('id',{ascending:false}));
   }
-  if(!S.gestor){ const {data}=await sb.rpc('encargados_mis_naves'); S.misEncargados=data||[]; }
+  if(!S.gestor){ const {data}=await sb.rpc('encargados_de_mis_naves'); S.misEncargados=data||[]; }
   S.nave = Object.fromEntries(naves.map(n=>[n.id,n]));
   S.socio = Object.fromEntries(socios.map(s=>[s.id,s]));
 }
 function ir(k){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,sugerencias:vSugerencias,yo:vYo})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,sugerencias:vSugerencias,yo:vYo})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -368,14 +369,15 @@ function refrescar(){ if(S.vista) ir(S.vista); }
 
 // ---------- Naves ----------
 function vNaves(){
-  $('#main').innerHTML = S.naves.map(n=>{
+  const lista = S.gestor ? S.naves : S.naves.filter(n=>S.misNaves.includes(n.id));
+  $('#main').innerHTML = (S.gestor?'':`<div class="card aviso-camp"><h2 style="margin-bottom:6px">Eres encargado de ${lista.map(n=>esc(n.nombre)).join(' y ')}</h2><p style="margin:0">Pulsa un hueco para asignarlo a un socio o liberarlo. También puedes cambiar la capacidad o añadir huecos. Los cambios quedan registrados.</p></div>`) + lista.map(n=>{
     const hs=S.huecos.filter(h=>h.nave_id===n.id).sort((a,b)=>a.codigo.localeCompare(b.codigo,'es',{numeric:true}));
     const oc=hs.filter(h=>h.socio_id).length;
     const en=(S.encargados||[]).find(e=>e.nave_id===n.id), es=en&&S.socio[en.socio_id];
     return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
-      <button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button><button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button></div>
-      <div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>
-      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${s?`ficha(${s.id})`:''}"><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}</div>`;}).join('')}</div></div>`;
+      ${S.gestor?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button></div>
+      ${S.gestor?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
+      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${S.gestor?(s?`ficha(${s.id})`:''):`huecoEnc(${h.id})`}" ${!S.gestor?'style="cursor:pointer"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}</div>`;}).join('')}</div></div>`;
   }).join('');
 }
 function cambiarEncargado(naveId){
@@ -395,6 +397,23 @@ async function guardarEncargado(naveId){
   await log(socio_id,'encargado de nave',`${S.nave[naveId].nombre}`);
   dlg.close(); await cargar(); vNaves();
 }
+async function huecoEnc(hid){
+  const h=S.huecos.find(x=>x.id===hid), n=S.nave[h.nave_id], s=h.socio_id&&S.socio[h.socio_id];
+  $('#dlgT').textContent=`${n.nombre} · hueco ${h.codigo}`;
+  if(h.socio_id){
+    $('#dlgB').innerHTML=`<div class="pname">${s?avatar(s):''}<div><b>${esc(s?.nombre||'Socio')}</b><br><span class="muted">Socio ${s?.numero??''}${s?.telefono?' · '+esc(s.telefono):''}</span></div></div>
+      ${h.cesion?'<p class="tag warn">Hueco de cesión</p>':''}
+      <div class="flex" style="margin-top:14px"><button class="btn sec" onclick="liberarEnc(${hid})">Liberar este hueco</button></div>`;
+  } else {
+    const {data}=await sb.rpc('socios_para_asignar');
+    $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">Este hueco está libre. Elige el socio al que se lo asignas.</p>
+      <label>Socio</label><select id="asS"><option value="">Elige un socio…</option>${(data||[]).map(x=>`<option value="${x.id}">${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
+      <div class="flex" style="margin-top:12px"><button class="btn" onclick="asignarEnc(${hid})">Asignar</button></div>`;
+  }
+  if(!dlg.open) dlg.showModal();
+}
+async function asignarEnc(hid){ const id=Number($('#asS').value); if(!id) return; const h=S.huecos.find(x=>x.id===hid); await q(sb.from('huecos').update({socio_id:id}).eq('id',hid)); await log(id,'hueco asignado',`${S.nave[h.nave_id].nombre} ${h.codigo} (por el encargado)`); dlg.close(); await cargar(); vNaves(); }
+async function liberarEnc(hid){ if(!confirm('¿Liberar este hueco?')) return; const h=S.huecos.find(x=>x.id===hid); const sid=h.socio_id; await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('id',hid)); await log(sid,'hueco liberado',`${S.nave[h.nave_id].nombre} ${h.codigo} (por el encargado)`); dlg.close(); await cargar(); vNaves(); }
 async function editarNave(id){ const n=S.nave[id]; const c=prompt(`Capacidad de ${n.nombre}`,n.capacidad); if(!c) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
 async function nuevoHueco(id){ const c=prompt('Código del nuevo hueco (número o letra)'); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c.trim()})); await cargar(); vNaves(); }
 
@@ -605,7 +624,7 @@ function vSugerencias(){
     $('#fSug').value=filtroSug; $('#fSug').onchange=e=>{filtroSug=e.target.value; vSugerencias();};
     return;
   }
-  const yo=S.socios[0];
+  const yo=S.socios.find(x=>(S.misIds||[]).includes(x.id));
   if(!yo){ $('#main').innerHTML=`<div class="card"><h2>No encontramos tu ficha</h2><p>Tu email no coincide con el de ningún socio del club.</p></div>`; return; }
   const mias=S.sugerencias.filter(x=>x.socio_id===yo.id);
   $('#main').innerHTML=`<div class="card aviso-camp"><h2>¿Qué mejorarías del club?</h2>
@@ -667,7 +686,8 @@ function verComoSocio(id){
 }
 function volverPanel(){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
 function vYo(prev){
-  const yo=prev?S.socio[prev]:S.socios[0];
+  const mios=S.socios.filter(x=>(S.misIds||[]).includes(x.id));
+  const yo=prev?S.socio[prev]:mios[0];
   if(!yo){ $('#main').innerHTML=`<div class="card"><h2>No encontramos tu ficha</h2><p>Tu email no coincide con el de ningún socio del club. Escribe a la junta para que lo actualicen.</p></div>`; return; }
   const hs=huecosDe(yo.id), cs=S.cuotas.filter(c=>c.socio_id===yo.id).sort((a,b)=>b.anio-a.anio);
   const ret=new URLSearchParams(location.search).get('pago');
@@ -704,11 +724,11 @@ function vYo(prev){
   const ms=S.mensajes.filter(m=>m.socio_id===yo.id);
   const misAvisos=`<div class="card"><h2>Mis avisos ${ms.filter(m=>!m.leido_en).length?`<span class="tag warn">${(n=>n===1?'1 nuevo':n+' nuevos')(ms.filter(m=>!m.leido_en).length)}</span>`:''}</h2>${ms.length?`<div class="avisos">${ms.map((m,i)=>`<details ${i===0?'open':''} class="${m.leido_en?'':'nuevo'}"><summary><span class="grow"><b>${esc(m.asunto)}</b><br><span class="muted" style="font-size:13px">${new Date(m.fecha).toLocaleDateString('es-ES')} · ${{whatsapp:'por WhatsApp',email:'por correo',web:'en la web'}[m.canal]}${m.por_sms?(m.canal==='web'?' y por SMS':' y SMS'):''}</span></span></summary><div class="txt">${esc(m.cuerpo)}</div></details>`).join('')}</div>`:'<p class="muted">Aquí verás los avisos que te mande el club.</p>'}</div>`;
   if(!prev && ms.some(m=>!m.leido_en)) sb.rpc('marcar_mensajes_leidos');
-  const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):S.socios.slice(1);
+  const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):mios.slice(1);
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email: solo su ficha, sin las pestañas del panel de gestión.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,52)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
     <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>
-    <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
+    <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre,telefono:S.socio[e.socio_id]?.telefono};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>${e.telefono?` · <a href="tel:${esc(e.telefono)}">${esc(e.telefono)}</a>`:''}`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
     <div class="card"><h2>Mis cuotas</h2><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
     ${cs.map(c=>`<tr><td>${c.anio}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td><td>${c.estado==='pendiente'&&!prev?`<div class="flex"><button class="btn small" onclick="pagarTPV(${c.id},'tarjeta')">Tarjeta</button><button class="btn bizum small" onclick="pagarTPV(${c.id},'bizum')">Bizum</button></div>`:''}</td></tr>`).join('')}</table></div>
     ${ms.some(m=>!m.leido_en)?'':misAvisos}
