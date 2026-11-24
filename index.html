@@ -60,6 +60,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .btn{background:var(--sea);color:#fff;border:0;border-radius:12px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 2px 0 var(--sea-d)}
 .btn:hover{filter:brightness(1.07)}.btn.sec{background:var(--sky);color:var(--sea-d);box-shadow:none}.btn.sun{background:var(--sun);color:#3b2600;box-shadow:0 2px 0 #d48f00}
 .btn.small{padding:6px 12px;font-size:14px;border-radius:10px}.btn:disabled{opacity:.45;cursor:default;filter:none}
+.junta{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.miembro{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:800;background:var(--sky);color:var(--sea-d)}
 .tag.ok{background:var(--ok-l);color:var(--ok)}.tag.warn{background:var(--warn-l);color:var(--warn)}.tag.bad{background:var(--bad-l);color:var(--bad)}
 .muted{color:var(--muted)}.err{color:var(--bad);font-weight:700}.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1}
@@ -200,7 +201,7 @@ async function iniciar(session){
   S.presidente = S.gestor ? !!(await sb.rpc('es_presidente')).data : false;
   if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['sugerencias','Sugerencias']];
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['junta','Junta directiva'],['sugerencias','Sugerencias']];
   TABS = tabs;
   $('#nav').innerHTML = tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('');
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
@@ -230,12 +231,14 @@ async function cargar(){
     S.historial = await q(sb.from('historial').select('*').order('id',{ascending:false}));
   }
   if(!S.gestor){ const {data}=await sb.rpc('encargados_de_mis_naves'); S.misEncargados=data||[]; }
+  if(S.gestor){ S.junta = await q(sb.from('junta').select('*').order('orden').order('id')); }
+  else { const {data}=await sb.rpc('junta_directiva'); S.junta=data||[]; }
   S.nave = Object.fromEntries(naves.map(n=>[n.id,n]));
   S.socio = Object.fromEntries(socios.map(s=>[s.id,s]));
 }
 function ir(k){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,sugerencias:vSugerencias,yo:vYo})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -723,6 +726,31 @@ async function nuevaEspera(){
   await q(sb.from('lista_espera').insert({tipo:socio?'interna':'externa',socio_id:socio?.id??null,nombre,nave_solicitada:nave,fecha_peticion:hoy(),notas}));
   await cargar(); vEspera();
 }
+
+// ---------- Junta directiva ----------
+const CARGOS=['Presidente','Presidenta','Vicepresidente','Vicepresidenta','Secretario','Secretaria','Tesorero','Tesorera','Vocal'];
+function vJunta(){
+  const ms=(S.junta||[]).map(j=>S.gestor?{...j,s:S.socio[j.socio_id]||{nombre:'¿?'}}:{...j,s:{nombre:j.nombre,numero:j.numero,telefono:j.telefono}});
+  $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Junta directiva</h2>${S.gestor?'<button class="btn small" onclick="editarJunta()">Añadir miembro</button>':''}</div>
+    <p class="muted">${S.gestor?'Los socios ven esta lista en su pestaña «Junta directiva», con el teléfono de quien lo tenga permitido.':'Las personas que dirigen el club. Si necesitas algo, puedes llamarlas o escribir una sugerencia.'}</p>
+    ${ms.length?`<div class="junta">${ms.map(j=>`<div class="miembro">${avatar(j.s,48)}<div class="grow"><span class="tag">${esc(j.cargo)}</span><br><b>${esc(j.s.nombre)}</b><br><span class="muted" style="font-size:14px">Socio ${j.s.numero??''}${(S.gestor?(j.mostrar_telefono&&j.s.telefono):j.telefono)?` · <a href="tel:${esc(String(j.s.telefono).replace(/\s/g,''))}">${esc(j.s.telefono)}</a>`:''}${S.gestor&&!j.mostrar_telefono?' · teléfono oculto a los socios':''}</span></div>${S.gestor?`<button class="btn sec small" onclick="editarJunta(${j.id})">Cambiar</button>`:''}</div>`).join('')}</div>`:'<p class="muted">Todavía no hay nadie en la lista.</p>'}</div>`;
+}
+function editarJunta(id){
+  const j=id?S.junta.find(x=>x.id===id):{cargo:'Vocal',socio_id:null,orden:((S.junta||[]).length+1)*10,mostrar_telefono:true};
+  $('#dlgT').textContent=id?'Cambiar miembro de la Junta':'Añadir miembro de la Junta';
+  $('#dlgB').innerHTML=`<label>Cargo</label><input id="jC" list="jCargos" value="${esc(j.cargo)}"><datalist id="jCargos">${CARGOS.map(c=>`<option value="${c}">`).join('')}</datalist>
+    <label>Socio</label><select id="jS">${activos().slice().sort((a,b)=>a.numero-b.numero).map(x=>`<option value="${x.id}" ${x.id===j.socio_id?'selected':''}>${x.numero} · ${esc(x.nombre)}</option>`).join('')}</select>
+    <label>Orden en la lista (los números más bajos salen primero)</label><input id="jO" type="number" value="${j.orden}">
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="jT" type="checkbox" ${j.mostrar_telefono?'checked':''} style="width:auto"> Mostrar su teléfono a los socios</label>
+    <div class="flex" style="margin-top:14px"><button class="btn" onclick="guardarJunta(${id||0})">Guardar</button>${id?`<button class="btn sec" onclick="quitarJunta(${id})">Quitar de la Junta</button>`:''}</div>`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarJunta(id){
+  const r={cargo:$('#jC').value.trim()||'Vocal',socio_id:Number($('#jS').value),orden:Number($('#jO').value)||50,mostrar_telefono:$('#jT').checked};
+  if(id) await q(sb.from('junta').update(r).eq('id',id)); else { await q(sb.from('junta').insert({...r,desde:hoy()})); await log(r.socio_id,'Junta directiva',`Entra como ${r.cargo}`); }
+  dlg.close(); await cargar(); vJunta();
+}
+async function quitarJunta(id){ const j=S.junta.find(x=>x.id===id); if(!confirm('¿Quitar a esta persona de la Junta?')) return; await q(sb.from('junta').delete().eq('id',id)); await log(j.socio_id,'Junta directiva',`Deja el cargo de ${j.cargo}`); dlg.close(); await cargar(); vJunta(); }
 
 // ---------- Área del socio ----------
 function elegirVistaSocio(){
