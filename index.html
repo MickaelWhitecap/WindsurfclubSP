@@ -374,9 +374,9 @@ async function cargarFotos(){
   }
   try{ localStorage.setItem('fotos',JSON.stringify(cache)); }catch(e){}
 }
-function botonesFoto(s){
-  const tiene=!!S.fotoUrl[s.id];
-  return `<div class="fotobt"><button class="btn sec small" onclick="elegirFoto(${s.id})">${tiene?'Cambiar la foto':'Poner una foto'}</button>${tiene?`<button class="btn sec small" onclick="quitarFoto(${s.id})">Quitar la foto</button>`:''}</div>`;
+function botonesFoto(s,previa){
+  const tiene=!!S.fotoUrl[s.id], d=previa?'disabled title="En la vista previa los botones no funcionan"':'';
+  return `<div class="fotobt"><button class="btn sec small" ${d} onclick="elegirFoto(${s.id})">${tiene?'Cambiar la foto':'Poner una foto'}</button>${tiene?`<button class="btn sec small" ${d} onclick="quitarFoto(${s.id})">Quitar la foto</button>`:''}</div>`;
 }
 function elegirFoto(id){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none'; document.body.appendChild(inp);
@@ -1005,7 +1005,7 @@ function vYo(prev){
   if(!prev && ms.some(m=>!m.leido_en)) sb.rpc('marcar_mensajes_leidos');
   const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):mios.slice(1);
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email: solo su ficha, sin las pestañas del panel de gestión.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,52)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
-    ${prev?'':botonesFoto(yo)}
+    ${botonesFoto(yo,!!prev)}
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
     <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>
     <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre,telefono:S.socio[e.socio_id]?.telefono};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>${e.telefono?` · <a href="tel:${esc(e.telefono)}">${esc(e.telefono)}</a>`:''}`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
