@@ -545,7 +545,7 @@ function vNaves(){
     return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
       ${!enc?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>${es?`<button class="btn sun small" onclick="verComoEncargado(${n.id})">Ver como el encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button>`:`<button class="btn sec small" onclick="proponerCapacidad(${n.id})">Capacidad</button><button class="btn sec small" onclick="proponerHueco(${n.id})">Añadir hueco</button>`}</div>
       ${!enc?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
-      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:''):`huecoEnc(${h.id})`}" ${enc?'style="cursor:pointer"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div></div>`;
+      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:`borrarHueco(${h.id})`):`huecoEnc(${h.id})`}" ${enc||!s?'style="cursor:pointer"':''} ${!enc&&!s?'title="Pulsa para borrar este hueco"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div>${!enc&&hs.some(h=>!h.socio_id)?'<p class="muted" style="font-size:13px;margin:10px 0 0">Para borrar un hueco libre, púlsalo.</p>':''}</div>`;
   }).join('') + (enc?`<div class="card"><h2>Mis propuestas</h2>${props.length?props.map(c=>filaCambio(c,{anular:!S.previaEnc})).join(''):'<p class="muted">Todavía no has propuesto ningún cambio.</p>'}</div>`:'');
 }
 const ESTADO_CAMBIO={pendiente:['Pendiente del presidente','warn'],aprobado:['Aprobado','ok'],rechazado:['Rechazado','bad'],anulado:['Retirado','']};
@@ -622,6 +622,14 @@ async function huecoEnc(hid){
 function asignarEnc(hid){ const id=Number($('#asS').value); if(!id) return; const h=S.huecos.find(x=>x.id===hid), s=S.socio[id]||{nombre:$('#asS').selectedOptions[0].text}; proponer({p_tipo:'asignar',p_nave:h.nave_id,p_hueco:hid,p_socio:id},`Asignar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre} a ${s.nombre}`); }
 function liberarEnc(hid){ const h=S.huecos.find(x=>x.id===hid), s=S.socio[h.socio_id]; proponer({p_tipo:'liberar',p_nave:h.nave_id,p_hueco:hid},`Liberar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre}${s?', que ocupa '+s.nombre:''}`); }
 async function editarNave(id){ const n=S.nave[id]; const c=await pedir(`Capacidad de ${n.nombre}`,{label:'Número de huecos',tipo:'number',valor:n.capacidad,obligatorio:true,min:1,max:500}); if(c===null) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
+async function borrarHueco(id){
+  const h=S.huecos.find(x=>x.id===id); if(!h||h.socio_id) return;
+  const n=S.nave[h.nave_id];
+  if(!await confirmar(`¿Borrar el hueco «${h.codigo}» de ${n.nombre}? Está libre. Desaparecerá de la nave y no se puede deshacer (podrías volver a crearlo con «Añadir hueco»).`,{titulo:'Borrar hueco',ok:'Borrar el hueco',peligro:true})) return;
+  const {error}=await sb.from('huecos').delete().eq('id',id).is('socio_id',null);
+  if(error){ aviso(/foreign key|violates/i.test(error.message)?'Este hueco tiene propuestas de un encargado guardadas y no se puede borrar.':errorES(error.message),'No se ha podido borrar'); return; }
+  await cargar(); vNaves();
+}
 async function nuevoHueco(id){ const c=await pedir(`Nuevo hueco en ${S.nave[id].nombre}`,{label:'Código del hueco (número o letra)',obligatorio:true},{ok:'Añadir'}); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c})); await cargar(); vNaves(); }
 
 // ---------- Cuotas ----------
