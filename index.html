@@ -281,14 +281,14 @@ async function nuevaContrasena(){
 }
 
 // ---------- Protección de datos ----------
-const PRIV_VERSION='2026-11-25b';
+const PRIV_VERSION='2026-11-25c';
 const PRIV_HTML=`<div class="priv">
 <p>Esta información explica qué hace el club con tus datos, según el Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica 3/2018.</p>
 <h3>Quién es el responsable</h3><p>Windsurf Club Sancti Petri. Puedes escribirnos a <a href="mailto:windsurfclubsanctipetri@gmail.com">windsurfclubsanctipetri@gmail.com</a>.</p>
 <h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra, licencia federativa y tu foto si decides ponerla. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes. Además anotamos qué días entras en la web y qué apartados abres, para saber si la web es útil y mejorarla.</p>
 <h3>Para qué los usamos</h3><p>Para gestionar tu condición de socio: asignar huecos, cobrar las cuotas, llevar las listas de espera y avisarte de lo que afecta al club por email, SMS o WhatsApp.</p>
 <h3>Por qué podemos usarlos</h3><p>Porque eres socio y los estatutos del club lo requieren (artículo 6.1.b del RGPD), y porque la asociación tiene obligaciones legales, como llevar el libro de socios y la contabilidad (artículo 6.1.c).</p>
-<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Tu foto solo la ves tú y la junta, y puedes quitarla cuando quieras. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios ven tu número de socio en el hueco que ocupas en las naves (no tu nombre), y los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
+<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Tu foto solo la ves tú y la junta, y puedes quitarla cuando quieras. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios ven tu número de socio (no tu nombre) en el hueco que ocupas en las naves y en tu puesto de la lista de espera, y los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
 <h3>Quién nos ayuda a guardarlos</h3><p>Supabase guarda la base de datos en servidores de la Unión Europea. Si pagas con tarjeta o Bizum, el pago lo tramitan Redsys y Unicaja. Los SMS los envía LabsMobile. No vendemos ni cedemos tus datos a nadie más, salvo que la ley lo obligue.</p>
 <h3>Cuánto tiempo</h3><p>Mientras seas socio. Después de la baja, solo el tiempo que exija la ley, por ejemplo para la contabilidad; luego se borran.</p>
 <h3>Tus derechos</h3><p>Puedes pedir ver, corregir o borrar tus datos, limitar u oponerte a su uso y llevártelos, escribiendo al email del club. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>).</p>
@@ -922,10 +922,10 @@ async function vEsperaSoc(){
   let filas;
   if(S.previaSocio){
     const l=S.espera.filter(e=>['esperando','ofrecido'].includes(e.estado)).sort((a,b)=>(b.tipo==='interna')-(a.tipo==='interna')||(b.prioritario-a.prioritario)||String(a.fecha_peticion).localeCompare(String(b.fecha_peticion))||a.id-b.id);
-    const c={}; filas=l.map(e=>({pide:e.nave_solicitada,posicion:(c[e.nave_solicitada]=(c[e.nave_solicitada]||0)+1),tipo:e.tipo,prioritario:e.prioritario,fecha_peticion:e.fecha_peticion,mio:e.socio_id===S.previaSocio}));
+    const c={}; filas=l.map(e=>({pide:e.nave_solicitada,posicion:(c[e.nave_solicitada]=(c[e.nave_solicitada]||0)+1),tipo:e.tipo,prioritario:e.prioritario,fecha_peticion:e.fecha_peticion,mio:e.socio_id===S.previaSocio,numero:e.socio_id?S.socio[e.socio_id]?.numero:null}));
   } else {
     $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
-    const {data,error}=await sb.rpc('lista_espera_socios'); if(error){ aviso(errorES(error.message)); return; }
+    const {data,error}=await sb.rpc('lista_espera_socios_num'); if(error){ aviso(errorES(error.message)); return; }
     if(S.vista!=='esperasoc') return; filas=data||[];
   }
   const grupos={}; filas.forEach(f=>(grupos[f.pide]=grupos[f.pide]||[]).push(f));
@@ -933,7 +933,7 @@ async function vEsperaSoc(){
   $('#main').innerHTML = `${S.previaSocio?bannerPrevia():''}<div class="card"><h2 style="margin-bottom:6px">Lista de espera</h2>
     <p class="muted" style="margin:0">Cuando queda un hueco libre, se ofrece por este orden: primero a los socios (antes los prioritarios y después por fecha) y luego a los aspirantes a socio. ${mias.length?`Tú estás en la lista: ${mias.map(f=>`<b style="color:var(--ink)">${esc(f.pide)}, puesto ${f.posicion}</b>`).join(', ')}.`:'Ahora mismo no estás en la lista. Si quieres apuntarte, escribe a la junta desde «Sugerencias».'}</p></div>
   ${Object.keys(grupos).length?Object.entries(grupos).map(([pide,l])=>`<div class="card"><h2>${esc(pide)} <span class="tag">${l.length} en espera</span></h2><div class="tablewrap"><table><tr><th>Puesto</th><th>Quién</th><th>Desde</th></tr>
-    ${l.map(f=>`<tr ${f.mio?'style="background:var(--sun-l);font-weight:800"':''}><td>${f.posicion}</td><td>${f.mio?'Tú':f.tipo==='interna'?'Socio del club':'Aspirante a socio'}</td><td>${f.prioritario?'<span class="tag warn">Prioritario</span>':fecha(f.fecha_peticion)}</td></tr>`).join('')}</table></div></div>`).join(''):'<div class="card"><p class="muted">No hay nadie esperando.</p></div>'}`;
+    ${l.map(f=>`<tr ${f.mio?'style="background:var(--sun-l);font-weight:800"':''}><td>${f.posicion}</td><td>${f.mio?'Tú':f.numero!=null?'Socio '+f.numero:f.tipo==='interna'?'Socio del club':'Aspirante a socio'}</td><td>${f.prioritario?'<span class="tag warn">Prioritario</span>':fecha(f.fecha_peticion)}</td></tr>`).join('')}</table></div></div>`).join(''):'<div class="card"><p class="muted">No hay nadie esperando.</p></div>'}`;
 }
 
 // ---------- Uso de la web (solo junta) ----------
