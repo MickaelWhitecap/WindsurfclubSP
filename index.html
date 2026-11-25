@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Windsurf Club SP</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a84c6">
+<link rel="icon" type="image/png" sizes="192x192" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Club SP">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -70,6 +78,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 #dlg2{max-width:480px}#dlg2 .d2txt{white-space:pre-line;line-height:1.5}#dlg2 .d2bt{justify-content:flex-end;margin-top:6px}#dlg2 .err:empty{display:none}
 .priv{line-height:1.55}.priv h3{margin:16px 0 4px;font-size:16px}.priv p{margin:4px 0}
 .chk{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:14px}.chk input{width:auto;margin-top:3px}
+.es-app .instalar-app{display:none}
 .pie{text-align:center;font-size:13px;padding:18px 16px 26px}.pie a{color:var(--muted)}.btn:disabled{opacity:.45;cursor:default;filter:none}
 .junta{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.miembro{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:800;background:var(--sky);color:var(--sea-d)}
@@ -147,6 +156,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <div class="flex" style="margin-top:16px"><button class="btn" id="bEntrar">Entrar</button><button class="btn sun" id="bCrear">Crear mi acceso</button></div>
     <p class="muted" style="font-size:14px;margin-bottom:0">¿Primera vez? Escribe tu email y una contraseña nueva, y pulsa «Crear mi acceso».</p>
     <p><a href="#" id="bOlvido">He olvidado mi contraseña</a></p>
+    <p class="instalar-app"><a href="#" onclick="event.preventDefault();instalarApp()">📱 Instalar la app en el móvil</a></p>
     <p id="lErr" class="err"></p>
   </div>
 </div>
@@ -161,7 +171,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <nav id="nav"></nav>
   </header>
   <main id="main"></main>
-  <p class="pie"><a href="#" onclick="event.preventDefault();verPrivacidad()">Protección de datos</a></p>
+  <p class="pie"><span class="instalar-app"><a href="#" onclick="event.preventDefault();instalarApp()">📱 Instalar la app en el móvil</a> · </span><a href="#" onclick="event.preventDefault();verPrivacidad()">Protección de datos</a></p>
 </div>
 
 <dialog id="dlg"><div class="hd"><h2 id="dlgT"></h2><button class="btn small" style="background:rgba(255,255,255,.22);box-shadow:none" onclick="dlg.close()">Cerrar</button></div><div class="bd" id="dlgB"></div></dialog>
@@ -295,6 +305,23 @@ const PRIV_HTML=`<div class="priv">
 <h3>Cuánto tiempo</h3><p>Mientras seas socio. Después de la baja, solo el tiempo que exija la ley, por ejemplo para la contabilidad; luego se borran.</p>
 <h3>Tus derechos</h3><p>Puedes pedir ver, corregir o borrar tus datos, limitar u oponerte a su uso y llevártelos, escribiendo al email del club. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>).</p>
 </div>`;
+// ---------- App instalable en el móvil ----------
+let avisoInstalar=null;
+const esApp=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+if(esApp()) document.documentElement.classList.add('es-app');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); avisoInstalar=e; });
+addEventListener('appinstalled',()=>{ avisoInstalar=null; document.documentElement.classList.add('es-app'); });
+async function instalarApp(){
+  if(avisoInstalar){ avisoInstalar.prompt(); const r=await avisoInstalar.userChoice.catch(()=>null); avisoInstalar=null;
+    if(r&&r.outcome==='accepted') aviso('Listo. Ya tienes el icono del club en tu móvil.'); return; }
+  const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1), android=/Android/.test(ua);
+  const pasosIos=`<p><b>En iPhone o iPad</b> (con Safari):</p><ol><li>Pulsa el botón <b>Compartir</b> (el cuadrado con una flecha hacia arriba). Si no lo ves, pulsa antes los <b>tres puntos</b> de abajo.</li><li>Baja y pulsa <b>«Añadir a pantalla de inicio»</b>.</li><li>Pulsa <b>«Añadir»</b>.</li></ol>`;
+  const pasosAnd=`<p><b>En Android</b> (con Chrome):</p><ol><li>Pulsa los <b>tres puntos</b> de arriba a la derecha.</li><li>Pulsa <b>«Instalar aplicación»</b> o <b>«Añadir a pantalla de inicio»</b>.</li><li>Pulsa <b>«Instalar»</b>.</li></ol>`;
+  const html=`<p>Así tendrás el icono del club en el móvil y la web se abrirá a pantalla completa, como una app. No hace falta ninguna tienda.</p>`+
+    (ios?pasosIos:android?pasosAnd:pasosIos+pasosAnd+`<p class="muted">Ábrela desde el móvil para instalarla.</p>`);
+  ventana({titulo:'Instalar la app', html, ok:'Entendido', cancelar:null});
+}
 function verPrivacidad(){ return ventana({titulo:'Protección de datos', html:PRIV_HTML, ok:'Cerrar', cancelar:null}); }
 // Cada persona confirma una vez que ha leído la información (queda registrado con fecha)
 async function comprobarPrivacidad(){
