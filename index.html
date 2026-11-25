@@ -51,6 +51,10 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--sky)}
 .num{display:inline-grid;place-items:center;min-width:34px;height:28px;padding:0 8px;border-radius:9px;background:var(--sky);color:var(--sea-d);font-weight:800;font-size:14px}
 :root[data-theme="dark"] .num{color:var(--sea)}
 .av{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;font-size:13px;font-weight:800;color:#fff;margin-right:10px;flex:none}
+img.av{object-fit:cover;background:var(--line)}
+.fotobt{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px}
+.usobar{display:grid;grid-template-columns:140px 1fr 50px;gap:12px;align-items:center;margin:8px 0;font-weight:600}
+.usobar{--c:#0a84c6}.usobar .n{text-align:right;color:var(--muted);font-size:14px}
 .pname{display:flex;align-items:center;font-weight:700}
 /* Formularios y botones */
 input,select,textarea{font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);width:100%}
@@ -276,14 +280,14 @@ async function nuevaContrasena(){
 }
 
 // ---------- Protección de datos ----------
-const PRIV_VERSION='2026-11-24';
+const PRIV_VERSION='2026-11-25';
 const PRIV_HTML=`<div class="priv">
 <p>Esta información explica qué hace el club con tus datos, según el Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica 3/2018.</p>
 <h3>Quién es el responsable</h3><p>Windsurf Club Sancti Petri. Puedes escribirnos a <a href="mailto:windsurfclubsanctipetri@gmail.com">windsurfclubsanctipetri@gmail.com</a>.</p>
-<h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra y licencia federativa. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes.</p>
+<h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra, licencia federativa y tu foto si decides ponerla. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes. Además anotamos qué días entras en la web y qué apartados abres, para saber si la web es útil y mejorarla.</p>
 <h3>Para qué los usamos</h3><p>Para gestionar tu condición de socio: asignar huecos, cobrar las cuotas, llevar las listas de espera y avisarte de lo que afecta al club por email, SMS o WhatsApp.</p>
 <h3>Por qué podemos usarlos</h3><p>Porque eres socio y los estatutos del club lo requieren (artículo 6.1.b del RGPD), y porque la asociación tiene obligaciones legales, como llevar el libro de socios y la contabilidad (artículo 6.1.c).</p>
-<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios solo ven los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
+<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Tu foto solo la ves tú y la junta, y puedes quitarla cuando quieras. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios solo ven los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
 <h3>Quién nos ayuda a guardarlos</h3><p>Supabase guarda la base de datos en servidores de la Unión Europea. Si pagas con tarjeta o Bizum, el pago lo tramitan Redsys y Unicaja. Los SMS los envía LabsMobile. No vendemos ni cedemos tus datos a nadie más, salvo que la ley lo obligue.</p>
 <h3>Cuánto tiempo</h3><p>Mientras seas socio. Después de la baja, solo el tiempo que exija la ley, por ejemplo para la contabilidad; luego se borran.</p>
 <h3>Tus derechos</h3><p>Puedes pedir ver, corregir o borrar tus datos, limitar u oponerte a su uso y llevártelos, escribiendo al email del club. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>).</p>
@@ -306,11 +310,12 @@ async function iniciar(session){
   S.presidente = S.gestor ? !!(await sb.rpc('es_presidente')).data : false;
   if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['junta','Junta directiva'],['sugerencias','Sugerencias']];
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias'],['uso','Uso de la web']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['junta','Junta directiva'],['sugerencias','Sugerencias']];
   TABS = tabs;
   $('#nav').innerHTML = tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('');
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
   await cargar();
+  usar('entrada');
   ir(tabs[0][0]);
   comprobarPrivacidad();
 }
@@ -332,7 +337,7 @@ async function cargar(){
   S.cambios = (S.gestor||S.misNaves.length) ? await q(sb.from('cambios_nave').select('*').order('id',{ascending:false})) : [];
   if(S.gestor){
     S.encargados = await q(sb.from('encargados').select('*'));
-    S.espera = await q(sb.from('lista_espera').select('*').order('fecha_peticion'));
+    S.espera = await q(sb.from('lista_espera').select('*').order('prioritario',{ascending:false}).order('fecha_peticion'));
     S.avisos = await q(sb.from('avisos').select('*').order('id'));
     S.historial = await q(sb.from('historial').select('*').order('id',{ascending:false}));
   }
@@ -341,10 +346,13 @@ async function cargar(){
   else { const {data}=await sb.rpc('junta_directiva_cargos'); S.junta=data||[]; }
   S.nave = Object.fromEntries(naves.map(n=>[n.id,n]));
   S.socio = Object.fromEntries(socios.map(s=>[s.id,s]));
+  await cargarFotos();
 }
+function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); }catch(e){} }
 function ir(k){
+  usar(k);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo,uso:vUso})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -352,7 +360,52 @@ const huecosTxt = id => huecosDe(id).map(h=>`${h.nave} ${h.codigo}${h.cesion?' (
 const cuotaAnual = (id,anio) => S.cuotas.find(c=>c.socio_id===id&&c.anio===anio&&c.tipo==='anual');
 const PALETA=['#0a84c6','#ff6b5b','#12b886','#f59f00','#7c5cff','#e64980','#1c7ed6','#2b8a3e'];
 const ini = n => (n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
-const avatar = (s,t) => `<span class="av" style="background:${PALETA[(s.numero||s.id||0)%PALETA.length]}${t?`;width:${t}px;height:${t}px;font-size:${Math.round(t*.36)}px`:''}">${esc(ini(s.nombre))}</span>`;
+// ---------- Fotos de perfil (miniatura de 320 px, privada: la ven el socio y la junta) ----------
+S.fotoUrl = {};
+async function cargarFotos(){
+  const con = S.socios.filter(s=>s.foto_en);
+  let cache={}; try{ cache=JSON.parse(localStorage.getItem('fotos')||'{}'); }catch(e){}
+  const ahora=Date.now(), faltan=[];
+  S.fotoUrl={};
+  con.forEach(s=>{ const c=cache[s.id]; if(c&&c.v===s.foto_en&&c.exp>ahora+3600e3) S.fotoUrl[s.id]=c.url; else faltan.push(s); });
+  if(faltan.length){
+    const {data}=await sb.storage.from('fotos').createSignedUrls(faltan.map(s=>`${s.id}.jpg`), 7*86400);
+    (data||[]).forEach((d,i)=>{ if(d&&d.signedUrl){ const s=faltan[i]; S.fotoUrl[s.id]=d.signedUrl; cache[s.id]={v:s.foto_en,url:d.signedUrl,exp:ahora+7*86400e3}; } });
+  }
+  try{ localStorage.setItem('fotos',JSON.stringify(cache)); }catch(e){}
+}
+function botonesFoto(s){
+  const tiene=!!S.fotoUrl[s.id];
+  return `<div class="fotobt"><button class="btn sec small" onclick="elegirFoto(${s.id})">${tiene?'Cambiar la foto':'Poner una foto'}</button>${tiene?`<button class="btn sec small" onclick="quitarFoto(${s.id})">Quitar la foto</button>`:''}</div>`;
+}
+function elegirFoto(id){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none'; document.body.appendChild(inp);
+  inp.onchange=async()=>{ const f=inp.files[0]; inp.remove(); if(!f) return;
+    let blob; try{ blob=await miniatura(f); }catch(e){ aviso('No se ha podido leer esa imagen. Prueba con otra foto.'); return; }
+    const {error}=await sb.storage.from('fotos').upload(`${id}.jpg`,blob,{upsert:true,contentType:'image/jpeg',cacheControl:'604800'});
+    if(error){ aviso(errorES(error.message),'No se ha podido subir la foto'); return; }
+    await q(sb.rpc('marcar_foto',{p_socio:id,p_tiene:true}));
+    await cargar(); refrescarVista(id);
+  };
+  inp.click();
+}
+async function miniatura(f){
+  const url=URL.createObjectURL(f);
+  try{
+    const img=await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ko; i.src=url; });
+    const lado=Math.min(img.naturalWidth,img.naturalHeight), T=320, c=document.createElement('canvas'); c.width=c.height=T;
+    c.getContext('2d').drawImage(img,(img.naturalWidth-lado)/2,(img.naturalHeight-lado)/2,lado,lado,0,0,T,T);
+    return await new Promise((ok,ko)=>c.toBlob(b=>b?ok(b):ko(),'image/jpeg',0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function quitarFoto(id){
+  if(!await confirmar('¿Quitar la foto? Volverán a verse las iniciales.',{ok:'Quitar la foto'})) return;
+  await sb.storage.from('fotos').remove([`${id}.jpg`]);
+  await q(sb.rpc('marcar_foto',{p_socio:id,p_tiene:false}));
+  await cargar(); refrescarVista(id);
+}
+function refrescarVista(id){ if(dlg.open && $('#dlgT').textContent.startsWith('Socio')) ficha(id); else if(S.vista==='yo') vYo(); else ir(S.vista); }
+const avatar = (s,t) => S.fotoUrl[s.id] ? `<img class="av" alt="" loading="lazy" src="${esc(S.fotoUrl[s.id])}"${t?` style="width:${t}px;height:${t}px"`:''}>` : `<span class="av" style="background:${PALETA[(s.numero||s.id||0)%PALETA.length]}${t?`;width:${t}px;height:${t}px;font-size:${Math.round(t*.36)}px`:''}">${esc(ini(s.nombre))}</span>`;
 const tipoC = n => n.tipo==='foil'?'foil':n.tipo==='kayak'?'kayak':'';
 const ICO = {
   socios:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.2c2.6.2 4.4 1.9 5 4.8"/></svg>',
@@ -415,6 +468,7 @@ function ficha(id){
   const hist = id&&S.historial?S.historial.filter(h=>h.socio_id===id):[];
   $('#dlgT').textContent = id ? `Socio ${s.numero ?? ''} · ${s.nombre}` : 'Nuevo socio';
   $('#dlgB').innerHTML = `
+    ${id?`<div class="pname" style="margin-bottom:8px">${avatar(s,64)}<div>${botonesFoto(s)}</div></div>`:''}
     <div class="row">${CAMPOS.map(([k,l,t])=>`<div><label>${l}</label><input id="f_${k}" type="${t||'text'}" value="${esc(s[k])}"></div>`).join('')}</div>
     <label>Notas</label><textarea id="f_notas" rows="2">${esc(s.notas)}</textarea>
     <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarSocio(${id})">Guardar</button>
@@ -813,9 +867,9 @@ async function guardarRespuesta(id){
 function vEspera(){
   const libres=S.huecos.filter(h=>!h.socio_id), plazas=175-activos().length;
   const bloque=(tipo,tit,desc)=>{const l=S.espera.filter(e=>e.tipo===tipo); return `<div class="card"><h2>${tit}</h2><p class="muted">${desc}</p><div class="tablewrap"><table><tr><th>#</th><th>Fecha</th><th>Nombre</th><th>Pide</th><th>Estado</th><th></th></tr>
-    ${l.map((e,i)=>`<tr><td>${i+1}</td><td>${fecha(e.fecha_peticion)}</td><td>${e.socio_id?`<a href="#" onclick="ficha(${e.socio_id});return false">${S.socio[e.socio_id]?.numero} · ${esc(e.nombre)}</a>`:esc(e.nombre)}${e.notas?`<br><span class="muted">${esc(e.notas)}</span>`:''}</td><td>${esc(e.nave_solicitada)}</td><td><select onchange="estadoEspera(${e.id},this.value)">${['esperando','ofrecido','asignado','retirado'].map(x=>`<option ${x===e.estado?'selected':''}>${x}</option>`).join('')}</select></td><td></td></tr>`).join('')}</table></div></div>`;};
+    ${l.map((e,i)=>`<tr><td>${i+1}</td><td>${e.prioritario?'<span class="tag warn">Prioritario</span>':fecha(e.fecha_peticion)}</td><td>${e.socio_id?`<a href="#" onclick="ficha(${e.socio_id});return false">${S.socio[e.socio_id]?.numero} · ${esc(e.nombre)}</a>`:esc(e.nombre)}${e.notas?`<br><span class="muted">${esc(e.notas)}</span>`:''}</td><td>${esc(e.nave_solicitada)}</td><td><select onchange="estadoEspera(${e.id},this.value)">${['esperando','ofrecido','asignado','retirado'].map(x=>`<option ${x===e.estado?'selected':''}>${x}</option>`).join('')}</select></td><td></td></tr>`).join('')}</table></div></div>`;};
   $('#main').innerHTML = `<div class="card"><p>Huecos libres ahora: <b>${libres.length}</b> (${libres.map(h=>esc(S.nave[h.nave_id].nombre+' '+h.codigo)).join(', ')||'ninguno'}). Plazas de socio libres: <b>${plazas}</b>.</p>
-    <p class="muted">Un hueco libre se ofrece primero a la lista interna, por orden de fecha. Solo si nadie lo quiere pasa a la externa, y entonces solo si hay plaza de socio (máximo 175).</p>
+    <p class="muted">Un hueco libre se ofrece primero a la lista interna: antes a los prioritarios y después por orden de fecha. Solo si nadie lo quiere pasa a la externa, y entonces solo si hay plaza de socio (máximo 175).</p>
     <button class="btn" onclick="nuevaEspera()">Añadir a la lista</button></div>
     ${bloque('interna','Lista interna (socios que piden otro hueco)','Tiene prioridad.')}
     ${bloque('externa','Lista externa (aspirantes a socio)','Al entrar pagan la cuota de entrada.')}`;
@@ -830,6 +884,35 @@ async function nuevaEspera(){
   const nombre = socio ? socio.nombre : r[1], nave = r[2], notas = socio ? null : (r[3]||null);
   await q(sb.from('lista_espera').insert({tipo:socio?'interna':'externa',socio_id:socio?.id??null,nombre,nave_solicitada:nave,fecha_peticion:hoy(),notas}));
   await cargar(); vEspera();
+}
+
+// ---------- Uso de la web (solo junta) ----------
+const NOMBRE_VISTA={yo:'Mi ficha',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web'};
+const haceTxt = t => { if(!t) return '<span class="muted">nunca</span>'; const dia=x=>{const f=new Date(x); return Date.UTC(f.getFullYear(),f.getMonth(),f.getDate());}; const d=Math.round((dia(Date.now())-dia(t))/86400e3); return d<1?'hoy':d===1?'ayer':`hace ${d} días`; };
+async function vUso(){
+  $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
+  const {data,error}=await sb.rpc('uso_web_resumen'); if(error){ aviso(errorES(error.message)); return; }
+  if(S.vista!=='uso') return;
+  const filas=data||[], soc=filas.filter(f=>!f.es_gestor), sem=Date.now()-7*86400e3;
+  const conAcceso=new Set(filas.filter(f=>f.socio_id).map(f=>Number(f.socio_id)));
+  const sinAcceso=activos().filter(s=>!conAcceso.has(s.id));
+  const vistas={}; soc.forEach(f=>Object.entries(f.vistas_30||{}).forEach(([k,v])=>vistas[k]=(vistas[k]||0)+Number(v)));
+  const top=Object.entries(vistas).sort((a,b)=>b[1]-a[1]), max=top.length?top[0][1]:1;
+  const masVisto = v => { const e=Object.entries(v||{}).sort((a,b)=>b[1]-a[1])[0]; return e?esc(NOMBRE_VISTA[e[0]]||e[0]):'<span class="muted">—</span>'; };
+  $('#main').innerHTML = `<div class="kpis">
+    <div class="kpi k1"><div class="ico">${ICO.socios}</div><span>Socios con acceso</span><b>${conAcceso.size} / ${activos().length}</b><span>${sinAcceso.length} sin acceso todavía</span></div>
+    <div class="kpi k2"><div class="ico">${ICO.ok}</div><span>Altas esta semana</span><b>${soc.filter(f=>new Date(f.alta)>sem).length}</b><span>últimos 7 días</span></div>
+    <div class="kpi k3"><div class="ico">${ICO.espera}</div><span>Han entrado esta semana</span><b>${soc.filter(f=>f.ultimo_acceso&&new Date(f.ultimo_acceso)>sem).length}</b><span>socios distintos</span></div>
+    <div class="kpi k4"><div class="ico">${ICO.euro}</div><span>Entradas en 30 días</span><b>${soc.reduce((a,f)=>a+f.entradas_30,0)}</b><span>sin contar a la junta</span></div>
+  </div>
+  <div class="card"><h2>Altas en la web (${filas.length})</h2><p class="muted" style="margin-top:-6px">De la más reciente a la más antigua. Las entradas y lo más visto cuentan los últimos 30 días; se registran desde el 25/11/2026.</p>
+    <div class="tablewrap"><table><tr><th>Alta</th><th>Socio</th><th>Último acceso</th><th>Entradas</th><th>Lo que más mira</th></tr>
+    ${filas.map(f=>{const s=f.socio_id?S.socio[f.socio_id]:null; return `<tr><td>${new Date(f.alta).toLocaleDateString('es-ES')}</td><td>${s?`<a href="#" onclick="ficha(${s.id});return false">${s.numero} · ${esc(s.nombre)}</a>`:`<span class="tag warn">no coincide con ningún socio</span><br><span class="muted">${esc(f.email)}</span>`}${f.es_gestor?' <span class="tag">junta</span>':''}${f.confirmado?'':' <span class="tag warn">sin confirmar el email</span>'}</td><td>${haceTxt(f.ultimo_acceso)}</td><td>${f.entradas_30}</td><td>${masVisto(f.vistas_30)}</td></tr>`;}).join('')}</table></div></div>
+  <div class="card"><h2>Qué miran los socios</h2><p class="muted" style="margin-top:-6px">Veces que se abre cada apartado en los últimos 30 días, sin contar a la junta.</p>
+    ${top.length?top.map(([k,v])=>`<div class="usobar"><span>${esc(NOMBRE_VISTA[k]||k)}</span><div class="bar"><i style="width:${v/max*100}%"></i></div><span class="n">${v}</span></div>`).join(''):'<p class="muted">Todavía no hay datos. Aparecerán cuando los socios entren.</p>'}</div>
+  <div class="card"><details><summary><b>Socios sin acceso todavía (${sinAcceso.length})</b></summary>
+    <p class="muted">Son los socios activos que aún no han creado su acceso con su email.</p>
+    <div class="lista">${sinAcceso.map(s=>`<a href="#" onclick="ficha(${s.id});return false">${avatar(s)}<span class="num">${s.numero}</span><span class="grow"><b>${esc(s.nombre)}</b>${s.email?'':'<br><span class="muted" style="font-size:14px">sin email en su ficha</span>'}</span></a>`).join('')}</div></details></div>`;
 }
 
 // ---------- Junta directiva ----------
@@ -914,6 +997,7 @@ function vYo(prev){
   if(!prev && ms.some(m=>!m.leido_en)) sb.rpc('marcar_mensajes_leidos');
   const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):mios.slice(1);
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email: solo su ficha, sin las pestañas del panel de gestión.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,52)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
+    ${prev?'':botonesFoto(yo)}
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
     <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>
     <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre,telefono:S.socio[e.socio_id]?.telefono};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>${e.telefono?` · <a href="tel:${esc(e.telefono)}">${esc(e.telefono)}</a>`:''}`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
