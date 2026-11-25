@@ -306,7 +306,7 @@ async function iniciar(session){
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
   $('#who').textContent = session.user.email;
   const {data:gestor} = await sb.rpc('es_gestor');
-  S.gestor = !!gestor; S.previaEnc=null;
+  S.gestor = !!gestor; S.previaEnc=null; S.previaSocio=null;
   S.presidente = S.gestor ? !!(await sb.rpc('es_presidente')).data : false;
   if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
@@ -350,6 +350,7 @@ async function cargar(){
 }
 function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); }catch(e){} }
 function ir(k){
+  if(S.previaSocio){ irPrevia(k); return; }
   usar(k);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
   S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo,uso:vUso,mapa:vMapa})[k]();
@@ -829,7 +830,7 @@ function tarjetaSug(x,gestor){
     ${gestor?`<div class="flex" style="margin-top:10px">${x.estado==='nueva'?`<button class="btn sec small" onclick="estadoSug(${x.id},'leida')">Marcar como leída</button>`:''}<button class="btn small" onclick="responderSug(${x.id})">${x.respuesta?'Cambiar respuesta':'Responder'}</button></div>`:''}</div>`;
 }
 function vSugerencias(){
-  if(S.gestor){
+  if(S.gestor&&!S.previaSocio){
     const n=S.sugerencias.filter(x=>x.estado==='nueva').length;
     const l=S.sugerencias.filter(x=>filtroSug==='todas'||x.estado===filtroSug);
     $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Buzón de sugerencias ${n?`<span class="tag warn">${n===1?'1 nueva':n+' nuevas'}</span>`:''}</h2>
@@ -839,10 +840,10 @@ function vSugerencias(){
     $('#fSug').value=filtroSug; $('#fSug').onchange=e=>{filtroSug=e.target.value; vSugerencias();};
     return;
   }
-  const yo=S.socios.find(x=>(S.misIds||[]).includes(x.id));
+  const yo=S.previaSocio?S.socio[S.previaSocio]:S.socios.find(x=>(S.misIds||[]).includes(x.id));
   if(!yo){ $('#main').innerHTML=`<div class="card"><h2>No encontramos tu ficha</h2><p>Tu email no coincide con el de ningún socio del club.</p></div>`; return; }
   const mias=S.sugerencias.filter(x=>x.socio_id===yo.id);
-  $('#main').innerHTML=`<div class="card aviso-camp"><h2>¿Qué mejorarías del club?</h2>
+  $('#main').innerHTML=`${S.previaSocio?bannerPrevia():''}<div class="card aviso-camp"><h2>¿Qué mejorarías del club?</h2>
     <p style="margin-top:0">Cuéntanos tu idea, queja o propuesta. La lee la junta y te contestará aquí mismo.</p>
     <label>Tema</label><select id="sTema">${Object.entries(TEMAS).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select>
     <label>Tu sugerencia</label><textarea id="sTxt" rows="5" maxlength="3000" placeholder="Escribe aquí tu sugerencia…"></textarea>
@@ -850,6 +851,7 @@ function vSugerencias(){
     <div class="card"><h2>Mis sugerencias</h2>${mias.length?mias.map(x=>tarjetaSug(x,false)).join(''):'<p class="muted">Aún no has enviado ninguna.</p>'}</div>`;
 }
 async function enviarSug(socio_id){
+  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el socio envía su sugerencia a la junta. No se ha enviado nada.','Vista previa'); return; }
   const texto=$('#sTxt').value.trim(); if(texto.length<3){ $('#sOk').textContent='Escribe tu sugerencia antes de enviarla.'; return; }
   await q(sb.from('sugerencias').insert({socio_id,tema:$('#sTema').value,texto}));
   await cargar(); vSugerencias(); $('#sOk').textContent='¡Gracias! La junta la ha recibido.';
@@ -902,8 +904,9 @@ async function vMapa(){
   const naves=[]; (data||[]).forEach(r=>{ let n=naves.find(x=>x.id===r.nave_id); if(!n){ n={id:r.nave_id,nombre:r.nave,tipo:r.tipo,capacidad:r.capacidad,h:[]}; naves.push(n);} n.h.push(r); });
   const ord=c=>{const m=/^\d+$/.test(c); return m?[0,Number(c),'']:[1,0,c];};
   naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
+  if(S.previaSocio){ const mh=S.huecos.filter(h=>h.socio_id===S.previaSocio); (data||[]).forEach(r=>r.mio=mh.some(h=>h.nave_id===r.nave_id&&h.codigo===r.codigo)); }
   const mios=(data||[]).filter(r=>r.mio);
-  $('#main').innerHTML = `<div class="card"><h2 style="margin-bottom:6px">Las naves del club</h2>
+  $('#main').innerHTML = `${S.previaSocio?bannerPrevia():''}<div class="card"><h2 style="margin-bottom:6px">Las naves del club</h2>
     <p class="muted" style="margin:0">Aquí ves cómo están repartidos los huecos. ${mios.length?`Los tuyos están marcados en color: ${mios.map(r=>`<b style="color:var(--ink)">${esc(r.nave)}, hueco ${esc(r.codigo)}</b>`).join(', ')}.`:'Ahora mismo no tienes hueco.'} Si quieres un hueco libre, apúntate a la lista de espera escribiendo a la junta desde «Sugerencias».</p>
     <p style="margin:10px 0 0"><span class="nave" style="display:inline"><span class="dot"></span>Windsurf</span> &nbsp; <span class="nave foil" style="display:inline"><span class="dot"></span>Foil</span> &nbsp; <span class="nave kayak" style="display:inline"><span class="dot"></span>Kayak</span></p></div>
   ${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></div>
@@ -943,10 +946,11 @@ async function vUso(){
 const CARGOS=['Presidente','Presidenta','Vicepresidente','Vicepresidenta','Secretario','Secretaria','Tesorero','Tesorera','Vocal'];
 const ordenCargo=c=>{ c=(c||'').toLowerCase(); return c.startsWith('presiden')?10:c.startsWith('vicepres')?20:c.startsWith('secretar')?30:c.startsWith('tesor')?40:c.startsWith('vocal')?60:50; };
 function vJunta(){
-  const ms=(S.junta||[]).map(j=>{ const s=S.gestor?S.socio[j.socio_id]:(j.nombre?{nombre:j.nombre,numero:j.numero,telefono:j.telefono}:null); return {...j,s,vac:!s}; });
-  $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Junta directiva</h2>${S.gestor?'<button class="btn small" onclick="editarJunta()">Añadir cargo</button>':''}</div>
-    <p class="muted">${S.gestor?'Los socios ven esta lista en su pestaña «Junta directiva», con el teléfono de quien lo tenga permitido.':'Las personas que dirigen el club. Si necesitas algo, puedes llamarlas o escribir una sugerencia.'}</p>
-    ${ms.length?`<div class="junta">${ms.map(j=>`<div class="miembro" ${j.vac?'style="border-style:dashed"':''}>${j.vac?'<span class="av" style="background:var(--line);color:var(--muted);width:48px;height:48px;font-size:20px">?</span>':avatar(j.s,48)}<div class="grow"><span class="tag">${esc(j.cargo)}</span><br>${j.vac?'<b class="muted">Sin designar</b>':`<b>${esc(j.s.nombre)}</b><br><span class="muted" style="font-size:14px">Socio ${j.s.numero??''}${(S.gestor?(j.mostrar_telefono&&j.s.telefono):j.telefono)?` · <a href="tel:${esc(String(j.s.telefono).replace(/\s/g,''))}">${esc(j.s.telefono)}</a>`:''}${S.gestor&&!j.mostrar_telefono?' · teléfono oculto a los socios':''}</span>`}</div>${S.gestor?`<button class="btn sec small" onclick="editarJunta(${j.id})">${j.vac?'Designar':'Cambiar'}</button>`:''}</div>`).join('')}</div>`:'<p class="muted">Todavía no hay nadie en la lista.</p>'}</div>`;
+  const G=S.gestor&&!S.previaSocio;
+  const ms=(S.junta||[]).map(j=>{ if(S.previaSocio){ const x=S.socio[j.socio_id]; return {...j,s:x?{nombre:x.nombre,numero:x.numero,telefono:x.telefono}:null,telefono:j.mostrar_telefono&&x?x.telefono:null,vac:!x}; } const s=G?S.socio[j.socio_id]:(j.nombre?{nombre:j.nombre,numero:j.numero,telefono:j.telefono}:null); return {...j,s,vac:!s}; });
+  $('#main').innerHTML=`${S.previaSocio?bannerPrevia():''}<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Junta directiva</h2>${G?'<button class="btn small" onclick="editarJunta()">Añadir cargo</button>':''}</div>
+    <p class="muted">${G?'Los socios ven esta lista en su pestaña «Junta directiva», con el teléfono de quien lo tenga permitido.':'Las personas que dirigen el club. Si necesitas algo, puedes llamarlas o escribir una sugerencia.'}</p>
+    ${ms.length?`<div class="junta">${ms.map(j=>`<div class="miembro" ${j.vac?'style="border-style:dashed"':''}>${j.vac?'<span class="av" style="background:var(--line);color:var(--muted);width:48px;height:48px;font-size:20px">?</span>':avatar(j.s,48)}<div class="grow"><span class="tag">${esc(j.cargo)}</span><br>${j.vac?'<b class="muted">Sin designar</b>':`<b>${esc(j.s.nombre)}</b><br><span class="muted" style="font-size:14px">Socio ${j.s.numero??''}${(G?(j.mostrar_telefono&&j.s.telefono):j.telefono)?` · <a href="tel:${esc(String(j.s.telefono).replace(/\s/g,''))}">${esc(j.s.telefono)}</a>`:''}${G&&!j.mostrar_telefono?' · teléfono oculto a los socios':''}</span>`}</div>${G?`<button class="btn sec small" onclick="editarJunta(${j.id})">${j.vac?'Designar':'Cambiar'}</button>`:''}</div>`).join('')}</div>`:'<p class="muted">Todavía no hay nadie en la lista.</p>'}</div>`;
 }
 function editarJunta(id){
   const j=id?S.junta.find(x=>x.id===id):{cargo:'Vocal',socio_id:null,orden:((S.junta||[]).length+1)*10,mostrar_telefono:true};
@@ -976,10 +980,18 @@ function elegirVistaSocio(){
   if(!dlg.open) dlg.showModal();
 }
 function verComoSocio(id){
-  dlg.close(); document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('on'));
-  $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML='<button class="on">Mi ficha</button>'; vYo(id); window.scrollTo(0,0);
+  dlg.close(); S.previaSocio=id; S.previaEnc=null;
+  const nv=[...new Set((S.encargados||[]).filter(e=>e.socio_id===id).map(e=>e.nave_id))];
+  const tabs=[['yo','Mi ficha'],['mapa','Naves'],...(nv.length?[['minave',nv.length>1?'Mis naves':'Mi nave']]:[]),['junta','Junta directiva'],['sugerencias','Sugerencias']];
+  $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML=tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); irPrevia('yo');
 }
-function volverPanel(){ const deNaves=!!S.previaEnc; S.previaEnc=null; if(deNaves){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('naves'); return; } $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
+function irPrevia(k){
+  const id=S.previaSocio; document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  S.vista=k; S.previaEnc = k==='minave' ? [...new Set((S.encargados||[]).filter(e=>e.socio_id===id).map(e=>e.nave_id))] : null;
+  ({yo:()=>vYo(id),mapa:vMapa,minave:vNaves,junta:vJunta,sugerencias:vSugerencias})[k](); window.scrollTo(0,0);
+}
+const bannerPrevia = () => { const s=S.socio[S.previaSocio]; return `<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${s?esc(s.nombre):'el socio'} cuando entra con su email. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`; };
+function volverPanel(){ const deNaves=!!S.previaEnc&&!S.previaSocio; S.previaEnc=null; S.previaSocio=null; if(deNaves){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('naves'); return; } $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
 function vYo(prev){
   const mios=S.socios.filter(x=>(S.misIds||[]).includes(x.id));
   const yo=prev?S.socio[prev]:mios[0];
@@ -1020,7 +1032,7 @@ function vYo(prev){
   const misAvisos=`<div class="card"><h2>Mis avisos ${ms.filter(m=>!m.leido_en).length?`<span class="tag warn">${(n=>n===1?'1 nuevo':n+' nuevos')(ms.filter(m=>!m.leido_en).length)}</span>`:''}</h2>${ms.length?`<div class="avisos">${ms.map((m,i)=>`<details ${i===0?'open':''} class="${m.leido_en?'':'nuevo'}"><summary><span class="grow"><b>${esc(m.asunto)}</b><br><span class="muted" style="font-size:13px">${new Date(m.fecha).toLocaleDateString('es-ES')} · ${{whatsapp:'por WhatsApp',email:'por correo',web:'en la web'}[m.canal]}${m.por_sms?(m.canal==='web'?' y por SMS':' y SMS'):''}</span></span></summary><div class="txt">${esc(m.cuerpo)}</div></details>`).join('')}</div>`:'<p class="muted">Aquí verás los avisos que te mande el club.</p>'}</div>`;
   if(!prev && ms.some(m=>!m.leido_en)) sb.rpc('marcar_mensajes_leidos');
   const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):mios.slice(1);
-  $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email: solo su ficha, sin las pestañas del panel de gestión.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,64)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
+  $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email. Arriba tienes sus mismas pestañas. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,64)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
     ${botonesFoto(yo,!!prev)}
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
     <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}
