@@ -281,14 +281,14 @@ async function nuevaContrasena(){
 }
 
 // ---------- Protección de datos ----------
-const PRIV_VERSION='2026-11-25';
+const PRIV_VERSION='2026-11-25b';
 const PRIV_HTML=`<div class="priv">
 <p>Esta información explica qué hace el club con tus datos, según el Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica 3/2018.</p>
 <h3>Quién es el responsable</h3><p>Windsurf Club Sancti Petri. Puedes escribirnos a <a href="mailto:windsurfclubsanctipetri@gmail.com">windsurfclubsanctipetri@gmail.com</a>.</p>
 <h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra, licencia federativa y tu foto si decides ponerla. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes. Además anotamos qué días entras en la web y qué apartados abres, para saber si la web es útil y mejorarla.</p>
 <h3>Para qué los usamos</h3><p>Para gestionar tu condición de socio: asignar huecos, cobrar las cuotas, llevar las listas de espera y avisarte de lo que afecta al club por email, SMS o WhatsApp.</p>
 <h3>Por qué podemos usarlos</h3><p>Porque eres socio y los estatutos del club lo requieren (artículo 6.1.b del RGPD), y porque la asociación tiene obligaciones legales, como llevar el libro de socios y la contabilidad (artículo 6.1.c).</p>
-<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Tu foto solo la ves tú y la junta, y puedes quitarla cuando quieras. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios solo ven los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
+<h3>Quién los ve</h3><p>Tú ves solo los tuyos. Tu foto solo la ves tú y la junta, y puedes quitarla cuando quieras. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios ven tu número de socio en el hueco que ocupas en las naves (no tu nombre), y los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
 <h3>Quién nos ayuda a guardarlos</h3><p>Supabase guarda la base de datos en servidores de la Unión Europea. Si pagas con tarjeta o Bizum, el pago lo tramitan Redsys y Unicaja. Los SMS los envía LabsMobile. No vendemos ni cedemos tus datos a nadie más, salvo que la ley lo obligue.</p>
 <h3>Cuánto tiempo</h3><p>Mientras seas socio. Después de la baja, solo el tiempo que exija la ley, por ejemplo para la contabilidad; luego se borran.</p>
 <h3>Tus derechos</h3><p>Puedes pedir ver, corregir o borrar tus datos, limitar u oponerte a su uso y llevártelos, escribiendo al email del club. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>).</p>
@@ -903,18 +903,18 @@ async function nuevaEspera(){
 // ---------- Naves para socios (solo para mirar) ----------
 async function vMapa(){
   $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
-  const {data,error}=await sb.rpc('mapa_naves'); if(error){ aviso(errorES(error.message)); return; }
+  const {data,error}=await sb.rpc('mapa_naves_numeros'); if(error){ aviso(errorES(error.message)); return; }
   if(S.vista!=='mapa') return;
   const naves=[]; (data||[]).forEach(r=>{ let n=naves.find(x=>x.id===r.nave_id); if(!n){ n={id:r.nave_id,nombre:r.nave,tipo:r.tipo,capacidad:r.capacidad,h:[]}; naves.push(n);} n.h.push(r); });
   const ord=c=>{const m=/^\d+$/.test(c); return m?[0,Number(c),'']:[1,0,c];};
   naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
-  if(S.previaSocio){ const mh=S.huecos.filter(h=>h.socio_id===S.previaSocio); (data||[]).forEach(r=>r.mio=mh.some(h=>h.nave_id===r.nave_id&&h.codigo===r.codigo)); }
+  if(S.previaSocio){ (data||[]).forEach(r=>{ const h=S.huecos.find(x=>x.nave_id===r.nave_id&&x.codigo===r.codigo); r.mio=!!h&&h.socio_id===S.previaSocio; r.numero=h&&h.socio_id?S.socio[h.socio_id]?.numero:null; }); }
   const mios=(data||[]).filter(r=>r.mio);
   $('#main').innerHTML = `${S.previaSocio?bannerPrevia():''}<div class="card"><h2 style="margin-bottom:6px">Las naves del club</h2>
-    <p class="muted" style="margin:0">Aquí ves cómo están repartidos los huecos. ${mios.length?`Los tuyos están marcados en color: ${mios.map(r=>`<b style="color:var(--ink)">${esc(r.nave)}, hueco ${esc(r.codigo)}</b>`).join(', ')}.`:'Ahora mismo no tienes hueco.'} Si quieres un hueco libre, apúntate a la lista de espera escribiendo a la junta desde «Sugerencias».</p>
+    <p class="muted" style="margin:0">Aquí ves cómo están repartidos los huecos y el número del socio que ocupa cada uno. ${mios.length?`Los tuyos están marcados en color: ${mios.map(r=>`<b style="color:var(--ink)">${esc(r.nave)}, hueco ${esc(r.codigo)}</b>`).join(', ')}.`:'Ahora mismo no tienes hueco.'} Si quieres un hueco libre, apúntate a la lista de espera escribiendo a la junta desde «Sugerencias».</p>
     <p style="margin:10px 0 0"><span class="nave" style="display:inline"><span class="dot"></span>Windsurf</span> &nbsp; <span class="nave foil" style="display:inline"><span class="dot"></span>Foil</span> &nbsp; <span class="nave kayak" style="display:inline"><span class="dot"></span>Kayak</span></p></div>
   ${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></div>
-    <div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?'<span class="muted">ocupado</span>':'libre'}</div>`).join('')}</div></div>`;}).join('')}`;
+    <div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?`<span class="muted">${h.numero!=null?'Socio '+h.numero:'ocupado'}</span>`:'libre'}</div>`).join('')}</div></div>`;}).join('')}`;
 }
 
 // ---------- Lista de espera para socios (solo para mirar) ----------
