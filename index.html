@@ -79,6 +79,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .priv{line-height:1.55}.priv h3{margin:16px 0 4px;font-size:16px}.priv p{margin:4px 0}
 .chk{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:14px}.chk input{width:auto;margin-top:3px}
 .es-app .instalar-app{display:none}
+.ipaso{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line);font-size:18px}.inum{flex:none;width:36px;height:36px;border-radius:50%;background:var(--sea);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}.idib{margin-top:8px}.idib svg{vertical-align:middle}.ipeq{font-size:15px;margin-top:6px}.iboton{display:inline-flex;align-items:center;gap:10px;background:#f2f2f5;color:#111;border-radius:12px;padding:10px 14px;font-weight:700}.iboton.azul{background:none;color:#0a7aff;font-size:20px;padding:6px 0}.ifin{display:flex;gap:14px;align-items:center;padding-top:16px;font-size:17px}.ifin img{border-radius:14px;flex:none}
 .pie{text-align:center;font-size:13px;padding:18px 16px 26px}.pie a{color:var(--muted)}.btn:disabled{opacity:.45;cursor:default;filter:none}
 .junta{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.miembro{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:800;background:var(--sky);color:var(--sea-d)}
@@ -156,7 +157,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <div class="flex" style="margin-top:16px"><button class="btn" id="bEntrar">Entrar</button><button class="btn sun" id="bCrear">Crear mi acceso</button></div>
     <p class="muted" style="font-size:14px;margin-bottom:0">¿Primera vez? Escribe tu email y una contraseña nueva, y pulsa «Crear mi acceso».</p>
     <p><a href="#" id="bOlvido">He olvidado mi contraseña</a></p>
-    <p class="instalar-app"><a href="#" onclick="event.preventDefault();instalarApp()">📱 Instalar la app en el móvil</a></p>
+    <p class="instalar-app"><a href="#" onclick="event.preventDefault();instalarApp()">📱 Poner la app del club en el móvil</a></p>
     <p id="lErr" class="err"></p>
   </div>
 </div>
@@ -171,7 +172,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <nav id="nav"></nav>
   </header>
   <main id="main"></main>
-  <p class="pie"><span class="instalar-app"><a href="#" onclick="event.preventDefault();instalarApp()">📱 Instalar la app en el móvil</a> · </span><a href="#" onclick="event.preventDefault();verPrivacidad()">Protección de datos</a></p>
+  <p class="pie"><span class="instalar-app"><a href="#" onclick="event.preventDefault();instalarApp()">📱 Poner la app del club en el móvil</a> · </span><a href="#" onclick="event.preventDefault();verPrivacidad()">Protección de datos</a></p>
 </div>
 
 <dialog id="dlg"><div class="hd"><h2 id="dlgT"></h2><button class="btn small" style="background:rgba(255,255,255,.22);box-shadow:none" onclick="dlg.close()">Cerrar</button></div><div class="bd" id="dlgB"></div></dialog>
@@ -312,15 +313,30 @@ if(esApp()) document.documentElement.classList.add('es-app');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); avisoInstalar=e; });
 addEventListener('appinstalled',()=>{ avisoInstalar=null; document.documentElement.classList.add('es-app'); });
+const ICO_COMPARTIR='<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#0a84c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1h-2"/><path d="M12 15V3M8 7l4-4 4 4"/></svg>';
+const ICO_ANADIR='<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+const ICO_PUNTOS='<svg width="46" height="46" viewBox="0 0 24 24" fill="#444"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg>';
+const ICO_PUNTOS_H='<svg width="46" height="46" viewBox="0 0 24 24" fill="#444"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>';
+const paso=(n,txt,dibujo='')=>`<div class="ipaso"><span class="inum">${n}</span><div class="grow"><div>${txt}</div>${dibujo?`<div class="idib">${dibujo}</div>`:''}</div></div>`;
 async function instalarApp(){
   if(avisoInstalar){ avisoInstalar.prompt(); const r=await avisoInstalar.userChoice.catch(()=>null); avisoInstalar=null;
     if(r&&r.outcome==='accepted') aviso('Listo. Ya tienes el icono del club en tu móvil.'); return; }
   const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1), android=/Android/.test(ua);
-  const pasosIos=`<p><b>En iPhone o iPad</b> (con Safari):</p><ol><li>Pulsa el botón <b>Compartir</b> (el cuadrado con una flecha hacia arriba). Si no lo ves, pulsa antes los <b>tres puntos</b> de abajo.</li><li>Baja y pulsa <b>«Añadir a pantalla de inicio»</b>.</li><li>Pulsa <b>«Añadir»</b>.</li></ol>`;
-  const pasosAnd=`<p><b>En Android</b> (con Chrome):</p><ol><li>Pulsa los <b>tres puntos</b> de arriba a la derecha.</li><li>Pulsa <b>«Instalar aplicación»</b> o <b>«Añadir a pantalla de inicio»</b>.</li><li>Pulsa <b>«Instalar»</b>.</li></ol>`;
-  const html=`<p>Así tendrás el icono del club en el móvil y la web se abrirá a pantalla completa, como una app. No hace falta ninguna tienda.</p>`+
-    (ios?pasosIos:android?pasosAnd:pasosIos+pasosAnd+`<p class="muted">Ábrela desde el móvil para instalarla.</p>`);
-  ventana({titulo:'Instalar la app', html, ok:'Entendido', cancelar:null});
+  const fin=`<div class="ifin"><img src="iconos/icono-180.png" width="64" height="64" alt=""><div>Ya está. Este icono saldrá en tu móvil. Púlsalo para entrar al club.</div></div>`;
+  const pasosIos=
+    paso(1,'Pulsa este botón. Está <b>abajo</b> en la pantalla.', ICO_COMPARTIR+`<div class="muted ipeq">¿No lo ves? Pulsa antes ${ICO_PUNTOS_H.replace(/46/g,'26')}</div>`)+
+    paso(2,'Baja un poco y pulsa:', `<span class="iboton">Añadir a pantalla de inicio ${ICO_ANADIR.replace(/40/g,'22')}</span>`)+
+    paso(3,'Arriba a la derecha, pulsa:', `<span class="iboton azul">Añadir</span>`);
+  const pasosAnd=
+    paso(1,'Pulsa los tres puntos. Están <b>arriba a la derecha</b>.', ICO_PUNTOS)+
+    paso(2,'Pulsa:', `<span class="iboton">Añadir a pantalla de inicio</span><div class="muted ipeq">En algunos móviles pone «Instalar aplicación».</div>`)+
+    paso(3,'Pulsa:', `<span class="iboton azul">Instalar</span>`);
+  let html;
+  const ojo=`<p class="muted ipeq">Mira los pasos y luego pulsa «Entendido» para hacerlos.</p>`;
+  if(ios) html=ojo+pasosIos+fin;
+  else if(android) html=ojo+pasosAnd+fin;
+  else html=`<p>Abre esta web <b>en tu móvil</b> y pulsa allí «📱 Poner la app del club en el móvil».</p><p class="muted">Desde un ordenador no se puede.</p>`;
+  ventana({titulo:'Poner la app en tu móvil', html, ok:'Entendido', cancelar:null});
 }
 function verPrivacidad(){ return ventana({titulo:'Protección de datos', html:PRIV_HTML, ok:'Cerrar', cancelar:null}); }
 // Cada persona confirma una vez que ha leído la información (queda registrado con fecha)
