@@ -310,7 +310,7 @@ async function iniciar(session){
   S.presidente = S.gestor ? !!(await sb.rpc('es_presidente')).data : false;
   if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias'],['uso','Uso de la web']] : [['yo','Mi ficha'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['junta','Junta directiva'],['sugerencias','Sugerencias']];
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias'],['uso','Uso de la web']] : [['yo','Mi ficha'],['mapa','Naves'],...(S.misNaves.length?[['minave',S.misNaves.length>1?'Mis naves':'Mi nave']]:[]),['junta','Junta directiva'],['sugerencias','Sugerencias']];
   TABS = tabs;
   $('#nav').innerHTML = tabs.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join('');
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
@@ -352,7 +352,7 @@ function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); 
 function ir(k){
   usar(k);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo,uso:vUso})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo,uso:vUso,mapa:vMapa})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -894,8 +894,24 @@ async function nuevaEspera(){
   await cargar(); vEspera();
 }
 
+// ---------- Naves para socios (solo para mirar) ----------
+async function vMapa(){
+  $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
+  const {data,error}=await sb.rpc('mapa_naves'); if(error){ aviso(errorES(error.message)); return; }
+  if(S.vista!=='mapa') return;
+  const naves=[]; (data||[]).forEach(r=>{ let n=naves.find(x=>x.id===r.nave_id); if(!n){ n={id:r.nave_id,nombre:r.nave,tipo:r.tipo,capacidad:r.capacidad,h:[]}; naves.push(n);} n.h.push(r); });
+  const ord=c=>{const m=/^\d+$/.test(c); return m?[0,Number(c),'']:[1,0,c];};
+  naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
+  const mios=(data||[]).filter(r=>r.mio);
+  $('#main').innerHTML = `<div class="card"><h2 style="margin-bottom:6px">Las naves del club</h2>
+    <p class="muted" style="margin:0">Aquí ves cómo están repartidos los huecos. ${mios.length?`Los tuyos están marcados en color: ${mios.map(r=>`<b style="color:var(--ink)">${esc(r.nave)}, hueco ${esc(r.codigo)}</b>`).join(', ')}.`:'Ahora mismo no tienes hueco.'} Si quieres un hueco libre, apúntate a la lista de espera escribiendo a la junta desde «Sugerencias».</p>
+    <p style="margin:10px 0 0"><span class="nave" style="display:inline"><span class="dot"></span>Windsurf</span> &nbsp; <span class="nave foil" style="display:inline"><span class="dot"></span>Foil</span> &nbsp; <span class="nave kayak" style="display:inline"><span class="dot"></span>Kayak</span></p></div>
+  ${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></div>
+    <div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?'<span class="muted">ocupado</span>':'libre'}</div>`).join('')}</div></div>`;}).join('')}`;
+}
+
 // ---------- Uso de la web (solo junta) ----------
-const NOMBRE_VISTA={yo:'Mi ficha',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web'};
+const NOMBRE_VISTA={yo:'Mi ficha',mapa:'Naves (socio)',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web'};
 const haceTxt = t => { if(!t) return '<span class="muted">nunca</span>'; const dia=x=>{const f=new Date(x); return Date.UTC(f.getFullYear(),f.getMonth(),f.getDate());}; const d=Math.round((dia(Date.now())-dia(t))/86400e3); return d<1?'hoy':d===1?'ayer':`hace ${d} días`; };
 async function vUso(){
   $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
