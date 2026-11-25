@@ -29,6 +29,7 @@ header{position:sticky;top:0;z-index:5;color:#fff;background:linear-gradient(120
 nav{display:flex;gap:6px;overflow-x:auto;max-width:1140px;margin:0 auto;padding:6px 16px 12px;scrollbar-width:none}
 nav button{flex:none;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:0;padding:8px 14px;border-radius:999px;color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
 .enlaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.enlaces a{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);background:var(--bg)}.enlaces a:hover{border-color:var(--sea,#0a84c6)}.enlaces .ico-e{font-size:26px}
+@media (max-width:520px){ .largo{display:none} }
 nav .navsep{flex:none;align-self:center;color:rgba(255,255,255,.8);font-size:13px;font-weight:700;padding:0 2px 0 10px;border-left:1px solid rgba(255,255,255,.4);margin-left:4px}
 nav button:hover{background:rgba(255,255,255,.24)}nav button.on{background:#fff;color:var(--sea-d)}
 main{max-width:1140px;margin:0 auto;padding:20px 16px 40px}
@@ -155,7 +156,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
     <div class="top">
       <div class="logo"><svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="rgba(255,255,255,.18)"/><path d="M25 8 L25 33 L12 33 Z" fill="#fff"/><path d="M27 12 L27 33 L37 33 Z" fill="#ffd27a"/><path d="M8 37 q4-3 8 0 t8 0 t8 0 t8 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
         <div><h1>Windsurf Club SP</h1><small id="rol"></small></div></div>
-      <span class="who" id="who"></span><button class="btn small" id="bSalir" style="background:rgba(255,255,255,.2);box-shadow:none">Salir</button>
+      <span class="who" id="who"></span><button class="btn small hidden" id="bModo" onclick="cambiarModo()" style="background:#fff;color:var(--sea-d);box-shadow:none;margin-right:6px"></button><button class="btn small" id="bSalir" style="background:rgba(255,255,255,.2);box-shadow:none">Salir</button>
     </div>
     <nav id="nav"></nav>
   </header>
@@ -307,19 +308,31 @@ async function comprobarPrivacidad(){
 async function iniciar(session){
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
   $('#who').textContent = session.user.email;
-  const {data:gestor} = await sb.rpc('es_gestor');
-  S.gestor = !!gestor; S.previaEnc=null; S.previaSocio=null;
-  S.presidente = S.gestor ? !!(await sb.rpc('es_presidente')).data : false;
-  if(!S.gestor){ const [a,b]=await Promise.all([sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]); S.misIds=(a.data||[]).map(Number); S.misNaves=(b.data||[]).map(Number); } else { S.misIds=[]; S.misNaves=[]; }
+  const [g,a,b]=await Promise.all([sb.rpc('es_gestor'),sb.rpc('mis_socio_ids'),sb.rpc('mis_naves_encargado')]);
+  S.esGestor=!!g.data; S.misIdsReal=(a.data||[]).map(Number); S.misNavesReal=(b.data||[]).map(Number);
+  S.presidenteReal = S.esGestor ? !!(await sb.rpc('es_presidente')).data : false;
+  let modo='gestion'; try{ modo=localStorage.getItem('modo')||'gestion'; }catch(e){}
+  await montar(S.esGestor && S.misIdsReal.length && modo==='socio' ? 'socio' : 'gestion', true);
+  comprobarPrivacidad();
+}
+// Quien es de la junta y además socio puede cambiar entre «Gestión» y «Mi zona de socio»
+async function cambiarModo(){
+  const m = S.gestor ? 'socio' : 'gestion'; try{ localStorage.setItem('modo',m); }catch(e){}
+  $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>'; await montar(m,false); window.scrollTo(0,0);
+}
+async function montar(modo,entrada){
+  S.gestor = S.esGestor && modo!=='socio'; S.previaEnc=null; S.previaSocio=null;
+  S.presidente = S.gestor && S.presidenteReal;
+  S.misIds = S.gestor ? [] : S.misIdsReal; S.misNaves = S.gestor ? [] : S.misNavesReal;
+  const bm=$('#bModo'); bm.classList.toggle('hidden', !(S.esGestor && S.misIdsReal.length)); bm.innerHTML = S.gestor ? '👤 <span class="largo">Ir a mi zona de </span>socio' : '⚙️ <span class="largo">Ir a la </span>gestión';
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
   const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias'],['uso','Uso de la web']] : tabsSocio(S.misNaves.length);
   TABS = tabs;
   $('#nav').innerHTML = navHTML(tabs);
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
   await cargar();
-  usar('entrada');
+  if(entrada) usar('entrada');
   ir(tabs[0][0]);
-  comprobarPrivacidad();
 }
 
 async function cargar(){
