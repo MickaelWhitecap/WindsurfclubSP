@@ -79,7 +79,8 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .priv{line-height:1.55}.priv h3{margin:16px 0 4px;font-size:16px}.priv p{margin:4px 0}
 .chk{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:14px}.chk input{width:auto;margin-top:3px}
 .es-app .instalar-app{display:none}
-.ipaso{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line);font-size:18px}.inum{flex:none;width:36px;height:36px;border-radius:50%;background:var(--sea);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}.idib{margin-top:8px}.idib svg{vertical-align:middle}.ipeq{font-size:15px;margin-top:6px}.iboton{display:inline-flex;align-items:center;gap:10px;background:#f2f2f5;color:#111;border-radius:12px;padding:10px 14px;font-weight:700}.iboton.azul{background:none;color:#0a7aff;font-size:20px;padding:6px 0}.ifin{display:flex;gap:14px;align-items:center;padding-top:16px;font-size:17px}.ifin img{border-radius:14px;flex:none}
+.ipaso{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line);font-size:18px}.inum{flex:none;width:36px;height:36px;border-radius:50%;background:var(--sea);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}.idib{margin-top:8px}.idib svg{vertical-align:middle}.ipeq{font-size:15px;margin-top:6px}.iboton{display:inline-flex;align-items:center;gap:10px;background:#f2f2f5;color:#111;border-radius:12px;padding:10px 14px;font-weight:700}.iboton.azul{background:none;color:#0a7aff;font-size:20px;padding:6px 0}.inove{margin-top:18px;padding:14px;border-radius:14px;background:var(--sun-l);font-size:16px}.inove p{margin:8px 0}
+.ifin{display:flex;gap:14px;align-items:center;padding-top:16px;font-size:17px}.ifin img{border-radius:14px;flex:none}
 .pie{text-align:center;font-size:13px;padding:18px 16px 26px}.pie a{color:var(--muted)}.btn:disabled{opacity:.45;cursor:default;filter:none}
 .junta{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.miembro{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:800;background:var(--sky);color:var(--sea-d)}
@@ -318,22 +319,37 @@ const ICO_ANADIR='<svg width="40" height="40" viewBox="0 0 24 24" fill="none" st
 const ICO_PUNTOS='<svg width="46" height="46" viewBox="0 0 24 24" fill="#444"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg>';
 const ICO_PUNTOS_H='<svg width="46" height="46" viewBox="0 0 24 24" fill="#444"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>';
 const paso=(n,txt,dibujo='')=>`<div class="ipaso"><span class="inum">${n}</span><div class="grow"><div>${txt}</div>${dibujo?`<div class="idib">${dibujo}</div>`:''}</div></div>`;
+async function copiarDireccion(b){
+  const dir=location.origin+location.pathname;
+  try{ await navigator.clipboard.writeText(dir); b.textContent='✓ Copiada'; }
+  catch(e){ b.outerHTML=`<p><b>${esc(dir)}</b></p>`; }
+}
 async function instalarApp(){
   if(avisoInstalar){ avisoInstalar.prompt(); const r=await avisoInstalar.userChoice.catch(()=>null); avisoInstalar=null;
     if(r&&r.outcome==='accepted') aviso('Listo. Ya tienes el icono del club en tu móvil.'); return; }
   const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1), android=/Android/.test(ua);
   const fin=`<div class="ifin"><img src="iconos/icono-180.png" width="64" height="64" alt=""><div>Ya está. Este icono saldrá en tu móvil. Púlsalo para entrar al club.</div></div>`;
-  const pasosIos=
-    paso(1,'Pulsa este botón. Está <b>abajo</b> en la pantalla.', ICO_COMPARTIR+`<div class="muted ipeq">¿No lo ves? Pulsa antes ${ICO_PUNTOS_H.replace(/46/g,'26')}</div>`)+
+  const chromeIos=/CriOS/.test(ua);
+  const pasosIos= chromeIos ?
+    paso(1,'Pulsa este botón. Está <b>arriba a la derecha</b>, junto a la dirección de la web.', ICO_COMPARTIR)+
+    paso(2,'Pulsa:', `<span class="iboton">Añadir a pantalla de inicio ${ICO_ANADIR.replace(/40/g,'22')}</span>`)+
+    paso(3,'Pulsa:', `<span class="iboton azul">Añadir</span>`)
+  :
+    paso(1,'Pulsa este botón. Está <b>abajo</b> en la pantalla.', ICO_COMPARTIR+`<div class="muted ipeq">Si abajo solo ves ${ICO_PUNTOS_H.replace(/46/g,'26')} pulsa ahí primero.</div>`)+
     paso(2,'Baja un poco y pulsa:', `<span class="iboton">Añadir a pantalla de inicio ${ICO_ANADIR.replace(/40/g,'22')}</span>`)+
     paso(3,'Arriba a la derecha, pulsa:', `<span class="iboton azul">Añadir</span>`);
+  const noVes = `<div class="inove"><b>¿No ves ningún botón abajo?</b>
+    <p>1. Toca una vez la parte de abajo de la pantalla. A veces los botones se esconden.</p>
+    <p>2. Si aun así no salen, es que la web está abierta dentro de otra app (WhatsApp, el correo…). Pulsa aquí:</p>
+    <button class="btn small" onclick="copiarDireccion(this)">Copiar la dirección de la web</button>
+    <p>Abre la app <b>Safari</b> (la brújula azul), toca la barra de arriba y pulsa <b>«Pegar e ir»</b>. Allí sí salen los botones.</p></div>`;
   const pasosAnd=
     paso(1,'Pulsa los tres puntos. Están <b>arriba a la derecha</b>.', ICO_PUNTOS)+
     paso(2,'Pulsa:', `<span class="iboton">Añadir a pantalla de inicio</span><div class="muted ipeq">En algunos móviles pone «Instalar aplicación».</div>`)+
     paso(3,'Pulsa:', `<span class="iboton azul">Instalar</span>`);
   let html;
   const ojo=`<p class="muted ipeq">Mira los pasos y luego pulsa «Entendido» para hacerlos.</p>`;
-  if(ios) html=ojo+pasosIos+fin;
+  if(ios) html=ojo+pasosIos+fin+(chromeIos?'':noVes);
   else if(android) html=ojo+pasosAnd+fin;
   else html=`<p>Abre esta web <b>en tu móvil</b> y pulsa allí «📱 Poner la app del club en el móvil».</p><p class="muted">Desde un ordenador no se puede.</p>`;
   ventana({titulo:'Poner la app en tu móvil', html, ok:'Entendido', cancelar:null});
