@@ -107,6 +107,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .hueco.ces{background:var(--sun-l)}
 /* Barras de ocupación */
 .bar{height:14px;background:var(--bg);border-radius:999px;overflow:hidden;border:1px solid var(--line)}.bar i{display:block;height:100%;border-radius:999px;background:var(--c)}
+.catf{margin:12px 0;font-weight:700}.catf .flex{margin-bottom:5px}.catf b{white-space:nowrap}
 .ocup{display:grid;grid-template-columns:90px 1fr 70px;gap:12px;align-items:center;margin:10px 0;font-weight:700}
 .ocup .n{text-align:right;color:var(--muted);font-size:14px}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:8px}
@@ -398,7 +399,7 @@ async function montar(modo,entrada){
   const bm=$('#bModo'); bm.classList.toggle('hidden', !(S.esGestor && S.misIdsReal.length)); bm.innerHTML = S.gestor ? '👤 <span class="largo">Ir a mi zona de </span>socio' : '⚙️ <span class="largo">Ir a la </span>gestión';
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
   await cargar();
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['comunicados','Comunicados'],['votaciones','Votaciones'],['sugerencias','Sugerencias'],['tablon','Tablones de naves'],['uso','Uso de la web']] : tabsSocio(S.misNaves.length, navesTablon().ver.length);
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['contab','Contabilidad'],['espera','Lista de espera'],['junta','Junta directiva'],['comunicados','Comunicados'],['votaciones','Votaciones'],['sugerencias','Sugerencias'],['tablon','Tablones de naves'],['uso','Uso de la web']] : tabsSocio(S.misNaves.length, navesTablon().ver.length);
   TABS = tabs;
   $('#nav').innerHTML = navHTML(tabs);
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
@@ -443,13 +444,13 @@ async function cargar(){
 }
 function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); }catch(e){} }
 // Pestañas del socio: primero en las que puede hacer algo, luego las de solo consulta
-const tabsSocio = (nN,nT) => [['yo','Mi ficha'],['comunicados',etiquetaCom()],['votaciones',etiquetaVot()],['sugerencias','Sugerencias'],...(nT?[['tablon',nT>1?'Tablón de mis naves':'Tablón de mi nave']]:[]),...(nN?[['minave',nN>1?'Mis naves':'Mi nave']]:[]),['|','Solo consulta'],['mapa','Naves'],['esperasoc','Lista de espera'],['junta','Junta directiva']];
+const tabsSocio = (nN,nT) => [['yo','Mi ficha'],['comunicados',etiquetaCom()],['votaciones',etiquetaVot()],['sugerencias','Sugerencias'],...(nT?[['tablon',nT>1?'Tablón de mis naves':'Tablón de mi nave']]:[]),...(nN?[['minave',nN>1?'Mis naves':'Mi nave']]:[]),['|','Solo consulta'],['mapa','Naves'],['esperasoc','Lista de espera'],['junta','Junta directiva'],['cuentas','Cuentas del club']];
 const navHTML = tabs => { let ver=false; return tabs.map(([k,t])=>{ if(k==='|'){ ver=true; return `<span class="navsep" title="Estas pestañas son solo para mirar"><span class="ojo">👁</span><span>${t.replace(' ',' <br>')}</span></span>`; } return `<button data-k="${k}"${ver?' class="ver"':''}>${t}</button>`; }).join(''); };
 function ir(k){
   if(S.previaSocio){ irPrevia(k); return; }
   usar(k);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,comunicados:vComunicados,votaciones:vVotaciones,yo:vYo,uso:vUso,mapa:vMapa,esperasoc:vEsperaSoc})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,comunicados:vComunicados,votaciones:vVotaciones,yo:vYo,uso:vUso,mapa:vMapa,esperasoc:vEsperaSoc,contab:vContab,cuentas:vCuentas})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -1335,7 +1336,7 @@ async function vEsperaSoc(){
 }
 
 // ---------- Uso de la web (solo junta) ----------
-const NOMBRE_VISTA={yo:'Mi ficha',mapa:'Naves (socio)',esperasoc:'Lista de espera (socio)',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',tablon:'Tablón de nave',comunicados:'Comunicados',votaciones:'Votaciones',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web'};
+const NOMBRE_VISTA={yo:'Mi ficha',mapa:'Naves (socio)',esperasoc:'Lista de espera (socio)',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',tablon:'Tablón de nave',comunicados:'Comunicados',votaciones:'Votaciones',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web',contab:'Contabilidad',cuentas:'Cuentas del club'};
 const haceTxt = t => { if(!t) return '<span class="muted">nunca</span>'; const dia=x=>{const f=new Date(x); return Date.UTC(f.getFullYear(),f.getMonth(),f.getDate());}; const d=Math.round((dia(Date.now())-dia(t))/86400e3); return d<1?'hoy':d===1?'ayer':`hace ${d} días`; };
 async function vUso(){
   $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
@@ -1361,6 +1362,133 @@ async function vUso(){
   <div class="card"><details><summary><b>Socios sin acceso todavía (${sinAcceso.length})</b></summary>
     <p class="muted">Son los socios activos que aún no han creado su acceso con su email.</p>
     <div class="lista">${sinAcceso.map(s=>`<a href="#" onclick="ficha(${s.id});return false">${avatar(s)}<span class="num">${s.numero}</span><span class="grow"><b>${esc(s.nombre)}</b>${s.email?'':'<br><span class="muted" style="font-size:14px">sin email en su ficha</span>'}</span></a>`).join('')}</div></details></div>`;
+}
+
+// ---------- Contabilidad del club (empieza el 1/1/2027; lo anterior no cuenta) ----------
+// Ingresos: los pagos de cuotas salen solos. Gastos y otros ingresos: los apunta la junta. Los socios ven solo el resumen, sin nombres.
+const CONT_INI=2027;
+const eurC = n => { n=Number(n)||0; try{ return n.toLocaleString('es-ES',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2,useGrouping:'always'})+' €'; }catch(e){ return eur(n); } };
+const CAT_GASTO=['Mantenimiento y reparaciones','Material y equipamiento','Seguros','Luz y agua','Limpieza','Actividades y eventos','Gestoría y trámites','Impuestos y tasas','Comisiones del banco','Web y oficina','Otros gastos'];
+const CAT_INGRESO=['Subvenciones','Patrocinios','Donaciones','Venta de material','Otros ingresos'];
+const METODOS=['Transferencia','Domiciliación','Tarjeta','Bizum','Efectivo'];
+const MESES=['Antes del 1 de enero','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let contAnio=null;
+const aniosCont = () => { const h=Math.max(CONT_INI,ANIO); return Array.from({length:h-CONT_INI+1},(_,i)=>h-i); };
+const anioCont = () => contAnio || aniosCont()[0];
+const selAnioCont = () => aniosCont().length>1 ? `<select style="width:auto" onchange="contAnio=Number(this.value);ir(S.vista)">${aniosCont().map(a=>`<option${a===anioCont()?' selected':''}>${a}</option>`).join('')}</select>` : '';
+// Acepta «8.500», «8500,50», «1.234,5 €»…
+const leerEuros = t => { let x=String(t||'').replace(/[€\s]/g,''); if(!x) return null; if(x.includes(',')) x=x.replace(/\./g,'').replace(',','.'); else if(/^\d{1,3}(\.\d{3})+$/.test(x)) x=x.replace(/\./g,''); const n=Number(x); return Number.isFinite(n)?Math.round(n*100)/100:NaN; };
+const notaInicioCont = a => a===CONT_INI && ANIO<CONT_INI ? `<p class="muted" style="margin-bottom:0">Las cuentas empiezan el <b>1 de enero de ${CONT_INI}</b>. Las cuotas de ${CONT_INI} que se pagan desde diciembre ya cuentan aquí.</p>` : '';
+// Año contable de un pago: el de su cuota (la de 2027 pagada en diciembre cuenta en 2027) o el del pago si es posterior
+const ejercicioPago = p => { const c=S.cuotas.find(k=>k.id===p.cuota_id), y=Number(String(p.fecha).slice(0,4)); return Math.max(c?c.anio:y,y); };
+const catPago = p => ({entrada:'Cuotas de entrada',atrasos:'Cuotas atrasadas'})[S.cuotas.find(k=>k.id===p.cuota_id)?.tipo] || 'Cuotas anuales';
+
+function htmlResumenCont(r,G){
+  const suma=l=>(l||[]).reduce((a,x)=>a+Number(x.importe),0), ing=suma(r.ingresos), gas=suma(r.gastos), res=ing-gas;
+  const si=r.saldo_inicial==null?null:Number(r.saldo_inicial), max=Math.max(1,...(r.ingresos||[]).map(x=>+x.importe),...(r.gastos||[]).map(x=>+x.importe));
+  const barras=(l,color,vacio)=>l.length?l.map(x=>`<div class="catf"><div class="flex"><span class="grow">${esc(x.categoria)}</span><b>${eurC(x.importe)}</b></div><div class="bar"><i style="--c:${color};width:${Math.max(2,x.importe/max*100)}%"></i></div></div>`).join(''):`<p class="muted">${vacio}</p>`;
+  const meses=(r.meses||[]).filter(m=>m.ingresos||m.gastos);
+  return `<div class="kpis">
+    <div class="kpi k2"><div class="ico">${ICO.euro}</div><span>Entra (ingresos)</span><b>${eurC(ing)}</b><span>${(r.ingresos||[]).reduce((a,x)=>a+x.n,0)} cobros</span></div>
+    <div class="kpi k4"><div class="ico">${ICO.euro}</div><span>Sale (gastos)</span><b>${eurC(gas)}</b><span>${(r.gastos||[]).reduce((a,x)=>a+x.n,0)} gastos</span></div>
+    <div class="kpi k1"><div class="ico">${ICO.ok}</div><span>Resultado del año</span><b style="color:${res<0?'var(--bad)':'inherit'}">${res<0?'−':''}${eurC(Math.abs(res))}</b><span>${res>=0?'Sobra':'Falta'}: lo que entra menos lo que sale</span></div>
+    <div class="kpi k3"><div class="ico">${ICO.euro}</div><span>Dinero del club</span><b>${si==null?'—':eurC(si+res)}</b><span>${si==null?(G?'Falta poner el dinero del 1 de enero':'La junta aún no lo ha puesto'):`Había ${eurC(si)} el 1 de enero`}</span></div>
+  </div>
+  <div class="card"><h2>¿De dónde viene el dinero?</h2>${barras(r.ingresos||[],'var(--mint)','Todavía no ha entrado nada este año.')}</div>
+  <div class="card"><h2>¿En qué se gasta?</h2>${barras(r.gastos||[],'var(--coral)','Todavía no hay gastos apuntados este año.')}</div>
+  ${meses.length?`<div class="card"><h2>Mes a mes</h2><table><thead><tr><th>Mes</th><th style="text-align:right">Entra</th><th style="text-align:right">Sale</th></tr></thead><tbody>${meses.map(m=>`<tr><td>${MESES[m.mes]}</td><td style="text-align:right">${m.ingresos?eurC(m.ingresos):'—'}</td><td style="text-align:right">${m.gastos?eurC(m.gastos):'—'}</td></tr>`).join('')}</tbody></table>${r.ultimo?`<p class="muted" style="font-size:14px;margin-bottom:0">Último apunte: ${fLarga(r.ultimo)}.</p>`:''}</div>`:''}`;
+}
+
+// Socios (y «Ver como un socio»): solo el resumen
+async function vCuentas(){
+  const a=anioCont(), cab=S.previaSocio?bannerPrevia():'';
+  $('#main').innerHTML=cab+'<div class="card"><p class="muted">Cargando…</p></div>';
+  const {data,error}=await sb.rpc('contabilidad_resumen',{p_anio:a});
+  if(S.vista!=='cuentas') return;
+  if(error){ $('#main').innerHTML=cab+'<div class="card"><p>No se han podido cargar las cuentas. Vuelve a probar más tarde.</p></div>'; return; }
+  $('#main').innerHTML=cab+`<div class="card aviso-camp"><div class="flex"><h2 class="grow" style="margin:0">Cuentas del club ${a}</h2>${selAnioCont()}</div>
+    <p style="margin-bottom:0">Lo que entra y lo que sale del club, para que todos los socios lo veáis. Se actualiza solo cada vez que la junta apunta algo.</p>${notaInicioCont(a)}</div>`+htmlResumenCont(data,false);
+}
+
+// Junta: resumen + apuntar gastos e ingresos con la foto de la factura
+async function vContab(){
+  const a=anioCont();
+  $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
+  const [r,movs,sal]=await Promise.all([sb.rpc('contabilidad_resumen',{p_anio:a}),
+    q(sb.from('contab_movimientos').select('*').gte('fecha',`${a}-01-01`).lte('fecha',`${a}-12-31`).order('fecha',{ascending:false}).order('id',{ascending:false})),
+    q(sb.from('contab_saldos').select('*').eq('anio',a))]);
+  if(S.vista!=='contab') return;
+  S.contMov=movs; S.contSaldo=sal[0]||null;
+  const pagosA=S.pagos.filter(p=>ejercicioPago(p)===a), cobrado=pagosA.reduce((s,p)=>s+Number(p.importe),0);
+  const pend=S.cuotas.filter(c=>c.anio===a&&c.estado==='pendiente').reduce((s,c)=>s+Number(c.importe)-Number(c.descuento),0);
+  const fila=m=>`<a href="#" onclick="editarMov(${m.id});return false" style="${m.anulado?'opacity:.55':''}"><span class="muted" style="min-width:52px;font-size:14px">${new Date(m.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
+    <span class="grow"><b>${esc(m.concepto)}</b>${m.fotos?' 📎':''}<br><span class="muted" style="font-size:14px">${esc(m.categoria)}${m.proveedor?' · '+esc(m.proveedor):''}</span></span>
+    ${m.anulado?'<span class="tag bad">Anulado</span>':''}<b style="white-space:nowrap;color:${m.tipo==='gasto'?'var(--bad)':'var(--ok)'}">${m.tipo==='gasto'?'−':'+'}${eurC(m.importe)}</b></a>`;
+  $('#main').innerHTML=`<div class="card aviso-camp"><div class="flex"><h2 class="grow" style="margin:0">Contabilidad ${a}</h2>${selAnioCont()}</div>
+    <p>Los cobros de cuotas entran solos. Aquí apuntáis los <b>gastos</b> (con la foto de la factura) y los <b>otros ingresos</b>, como una subvención. Los socios ven el resumen en su pestaña «Cuentas del club», sin nombres.</p>
+    <div class="flex"><button class="btn sun" onclick="editarMov(null,'gasto')">➖ Apuntar un gasto</button><button class="btn sec" onclick="editarMov(null,'ingreso')">➕ Apuntar otro ingreso</button><button class="btn sec" onclick="saldoInicial(${a})">🏦 Dinero el 1 de enero</button><button class="btn sec" onclick="descargarCont(${a})">⬇️ Descargar para Excel</button></div>${notaInicioCont(a)}</div>`
+    + htmlResumenCont(r.data||{ingresos:[],gastos:[],meses:[]},true)
+    + `<div class="card"><h2>Apuntes de ${a}</h2><div class="lista">
+      <div class="flex" style="padding:8px 10px"><span class="muted" style="min-width:52px;font-size:14px">Solos</span><span class="grow"><b>Cobros de cuotas</b><br><span class="muted" style="font-size:14px">${pagosA.length} pagos, salen de la pestaña Cuotas${pend?` · faltan ${eurC(pend)} por cobrar`:''}</span></span><b style="color:var(--ok)">+${eurC(cobrado)}</b></div>
+      ${movs.map(fila).join('')||'<p class="muted" style="padding:0 10px">Todavía no hay gastos ni otros ingresos apuntados.</p>'}</div></div>`;
+}
+
+function editarMov(id,tipo){
+  const m=id?S.contMov.find(x=>x.id===id):null; tipo=m?m.tipo:tipo; limpiarAdj('cont');
+  const cats=[...new Set([...(tipo==='gasto'?CAT_GASTO:CAT_INGRESO),...S.contMov.filter(x=>x.tipo===tipo).map(x=>x.categoria)])];
+  const hoy=new Date().toISOString().slice(0,10), fecha=m?m.fecha:(hoy<`${CONT_INI}-01-01`?`${CONT_INI}-01-01`:hoy);
+  $('#dlgT').textContent=m?(m.anulado?'Apunte anulado':(tipo==='gasto'?'Gasto':'Ingreso')):(tipo==='gasto'?'Apuntar un gasto':'Apuntar otro ingreso');
+  $('#dlgB').innerHTML=`${m&&m.anulado?`<p class="tag bad">Anulado${m.motivo_anulacion?': '+esc(m.motivo_anulacion):''}</p>`:''}
+    <label>Fecha</label><input id="mvF" type="date" min="${CONT_INI}-01-01" value="${fecha}">
+    <label>Categoría</label><select id="mvC" onchange="$('#mvC2').classList.toggle('hidden',this.value!=='+')">${cats.map(c=>`<option${m&&m.categoria===c?' selected':''}>${esc(c)}</option>`).join('')}<option value="+">Otra categoría…</option></select>
+    <input id="mvC2" class="hidden" maxlength="60" placeholder="Nombre de la nueva categoría" style="margin-top:6px">
+    <label>Concepto</label><input id="mvT" maxlength="200" value="${esc(m?.concepto)}" placeholder="${tipo==='gasto'?'Por ejemplo: arreglo de la puerta de la Nave 2':'Por ejemplo: subvención del Ayuntamiento'}">
+    <label>Importe (€)</label><input id="mvI" inputmode="decimal" value="${m?String(m.importe).replace('.',','):''}" placeholder="Por ejemplo: 120,50">
+    <label>${tipo==='gasto'?'A quién se paga':'De quién viene'} <span class="muted">(opcional; no lo ven los socios)</span></label><input id="mvP" maxlength="120" value="${esc(m?.proveedor)}">
+    <label>Cómo se ${tipo==='gasto'?'pagó':'cobró'}</label><select id="mvM">${METODOS.map(x=>`<option${(m?.metodo||'Transferencia')===x?' selected':''}>${x}</option>`).join('')}</select>
+    <label>Notas <span class="muted">(opcional)</span></label><textarea id="mvN" rows="2">${esc(m?.notas)}</textarea>
+    <label>${tipo==='gasto'?'Foto de la factura o ticket':'Foto del justificante'}</label>${m&&m.fotos?galeria('cont',m.id,m.fotos)+'<p class="muted" style="font-size:14px">Para cambiar la foto, anula este apunte y apúntalo otra vez.</p>':selectorFotos('cont')}
+    <p class="err" id="mvE"></p>
+    <div class="flex" style="margin-top:12px">${m&&m.anulado?'':`<button class="btn" id="mvB" onclick="guardarMov(${id||'null'},'${tipo}')">Guardar</button>`}${m&&!m.anulado?`<button class="btn sec" onclick="anularMov(${id})">Anular este apunte</button>`:''}</div>
+    ${m?`<p class="muted" style="font-size:13px">Apuntado por ${esc(m.creado_por)} el ${fLargaTS(m.creado_en)}${m.editado_en?` · cambiado por ${esc(m.editado_por)} el ${fLargaTS(m.editado_en)}`:''}.</p>`:''}`;
+  if(!dlg.open) dlg.showModal(); pintarAdj();
+}
+async function guardarMov(id,tipo){
+  const m=id?S.contMov.find(x=>x.id===id):null, E=t=>{ $('#mvE').textContent=t; };
+  const fecha=$('#mvF').value, cat=$('#mvC').value==='+'?$('#mvC2').value.trim():$('#mvC').value, concepto=$('#mvT').value.trim(), importe=leerEuros($('#mvI').value);
+  if(!fecha||fecha<`${CONT_INI}-01-01`) return E(`La fecha tiene que ser del 1 de enero de ${CONT_INI} en adelante.`);
+  if(cat.length<2) return E('Escribe el nombre de la categoría.');
+  if(concepto.length<2) return E('Escribe el concepto.');
+  if(!importe||importe<=0) return E('Escribe el importe, por ejemplo 120,50.');
+  const fotos=ADJ.cont||[], row={tipo,fecha,categoria:cat,concepto,importe,proveedor:$('#mvP').value.trim()||null,metodo:$('#mvM').value,notas:$('#mvN').value.trim()||null};
+  if(!m||!m.fotos) row.fotos=fotos.length;
+  $('#mvB').disabled=true; let nid=id;
+  try{
+    if(m) await q(sb.from('contab_movimientos').update(row).eq('id',id));
+    else nid=(await q(sb.from('contab_movimientos').insert(row).select('id')))[0].id;
+  }catch(e){ $('#mvB').disabled=false; return; }
+  const ok=(!m||!m.fotos)&&fotos.length?await subirAdj('cont',nid,fotos):fotos.length;
+  limpiarAdj('cont'); dlg.close();
+  const a=Number(fecha.slice(0,4)); if(a!==anioCont()) contAnio=a;
+  await vContab();
+  if(ok<fotos.length) aviso('El apunte está guardado, pero alguna foto no se ha podido subir.');
+}
+async function anularMov(id){
+  const motivo=await pedir('¿Anular este apunte?',{label:'Motivo',ayuda:'Por ejemplo: apuntado dos veces',obligatorio:true},{ok:'Anular',peligro:true});
+  if(!motivo) return;
+  await q(sb.from('contab_movimientos').update({anulado:true,motivo_anulacion:motivo}).eq('id',id)); dlg.close(); vContab();
+}
+async function saldoInicial(a){
+  const v=await pedir(`Dinero en la cuenta el 1 de enero de ${a}`,{label:'Lo que había en el banco y en caja ese día (€)',valor:S.contSaldo?String(S.contSaldo.saldo_inicial).replace('.',','):'',ayuda:'Por ejemplo: 8.500',obligatorio:true},{validar:v=>Number.isNaN(leerEuros(v[0]))?'Escribe un importe, por ejemplo 8.500':''});
+  if(v==null) return;
+  await q(sb.from('contab_saldos').upsert({anio:a,saldo_inicial:leerEuros(v)})); vContab();
+}
+function descargarCont(a){
+  const n=x=>String(Number(x).toFixed(2)).replace('.',','), c=t=>`"${String(t??'').replace(/"/g,'""')}"`;
+  const filas=[...S.pagos.filter(p=>ejercicioPago(p)===a).map(p=>[p.fecha,'Ingreso',catPago(p),`Cuota socio nº ${S.socio[p.socio_id]?.numero??''}`,S.socio[p.socio_id]?.nombre,p.metodo,n(p.importe),'','']),
+    ...S.contMov.filter(m=>!m.anulado).map(m=>[m.fecha,m.tipo==='gasto'?'Gasto':'Ingreso',m.categoria,m.concepto,m.proveedor,m.metodo,n(m.tipo==='gasto'?-m.importe:m.importe),m.fotos?'Sí':'No',m.notas])].sort((x,y)=>x[0]<y[0]?-1:1);
+  const csv='﻿'+[['Fecha','Tipo','Categoría','Concepto','Quién','Cómo','Importe','Factura','Notas'],...filas].map(f=>f.map(c).join(';')).join('\r\n');
+  const l=document.createElement('a'); l.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); l.download=`contabilidad_club_${a}.csv`; document.body.appendChild(l); l.click(); setTimeout(()=>{ URL.revokeObjectURL(l.href); l.remove(); },500);
 }
 
 // ---------- Junta directiva ----------
@@ -1408,7 +1536,7 @@ function verComoSocio(id){
 function irPrevia(k){
   const id=S.previaSocio; document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
   S.vista=k; S.previaEnc = k==='minave' ? [...new Set((S.encargados||[]).filter(e=>e.socio_id===id).map(e=>e.nave_id))] : null;
-  ({yo:()=>vYo(id),mapa:vMapa,esperasoc:vEsperaSoc,minave:vNaves,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,comunicados:vComunicados,votaciones:vVotaciones})[k](); window.scrollTo(0,0);
+  ({yo:()=>vYo(id),mapa:vMapa,esperasoc:vEsperaSoc,minave:vNaves,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,comunicados:vComunicados,votaciones:vVotaciones,cuentas:vCuentas})[k](); window.scrollTo(0,0);
 }
 const bannerPrevia = () => { const s=S.socio[S.previaSocio]; return `<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${s?esc(s.nombre):'el socio'} cuando entra con su email. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`; };
 function volverPanel(){ const deNaves=!!S.previaEnc&&!S.previaSocio; S.previaEnc=null; S.previaSocio=null; if(deNaves){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('naves'); return; } $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
