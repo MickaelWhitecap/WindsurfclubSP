@@ -38,8 +38,11 @@ nav{display:flex;gap:6px;overflow-x:auto;max-width:1140px;margin:0 auto;padding:
 nav button{flex:none;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:0;padding:8px 14px;border-radius:999px;color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
 .enlaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.enlaces a{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);background:var(--bg)}.enlaces a:hover{border-color:var(--sea,#0a84c6)}.enlaces .ico-e{font-size:26px}
 @media (max-width:520px){ .largo{display:none} }
-nav .navsep{flex:none;align-self:center;color:rgba(255,255,255,.8);font-size:13px;font-weight:700;padding:0 2px 0 10px;border-left:1px solid rgba(255,255,255,.4);margin-left:4px}
-nav button:hover{background:rgba(255,255,255,.24)}nav button.on{background:#fff;color:var(--sea-d)}
+nav .navsep{flex:none;align-self:center;display:flex;align-items:center;gap:5px;color:#fff;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;line-height:1.15;padding:2px 4px 2px 14px;border-left:2px solid rgba(255,255,255,.55);margin-left:8px;opacity:.9}
+nav .navsep .ojo{font-size:15px;letter-spacing:0}
+nav button.ver{background:transparent;border:1.5px dashed rgba(255,255,255,.6);padding:6.5px 12.5px;font-weight:600}
+nav button.ver:hover{background:rgba(255,255,255,.12)}
+nav button:hover{background:rgba(255,255,255,.24)}nav button.on{background:#fff;color:var(--sea-d)}nav button.ver.on{background:#fff;border-style:solid;border-color:#fff}
 main{max-width:1140px;margin:0 auto;padding:20px 16px 40px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
 h2{font-size:21px;font-weight:800;margin:0 0 12px}h3{font-size:16px;font-weight:800;margin:20px 0 8px;color:var(--sea-d)}
@@ -431,7 +434,7 @@ async function cargar(){
 function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); }catch(e){} }
 // Pestañas del socio: primero en las que puede hacer algo, luego las de solo consulta
 const tabsSocio = (nN,nT) => [['yo','Mi ficha'],['sugerencias','Sugerencias'],...(nT?[['tablon',nT>1?'Tablón de mis naves':'Tablón de mi nave']]:[]),...(nN?[['minave',nN>1?'Mis naves':'Mi nave']]:[]),['|','Solo consulta'],['mapa','Naves'],['esperasoc','Lista de espera'],['junta','Junta directiva']];
-const navHTML = tabs => tabs.map(([k,t])=>k==='|'?`<span class="navsep">${t}:</span>`:`<button data-k="${k}">${t}</button>`).join('');
+const navHTML = tabs => { let ver=false; return tabs.map(([k,t])=>{ if(k==='|'){ ver=true; return `<span class="navsep" title="Estas pestañas son solo para mirar"><span class="ojo">👁</span><span>${t.replace(' ','<br>')}</span></span>`; } return `<button data-k="${k}"${ver?' class="ver"':''}>${t}</button>`; }).join(''); };
 function ir(k){
   if(S.previaSocio){ irPrevia(k); return; }
   usar(k);
