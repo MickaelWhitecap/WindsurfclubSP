@@ -136,6 +136,10 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
 .pasos-pago{padding-left:22px;margin:6px 0 14px}.pasos-pago li{margin:8px 0}
 .copia{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}.copia code{font:700 15px/1.4 ui-monospace,Menlo,monospace;background:var(--card);border:1.5px dashed var(--sun);border-radius:10px;padding:6px 10px;word-break:break-all}
 .sug{border:1.5px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}.sug.nueva{border-color:var(--sun);background:var(--sun-l)}
+.gal{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.gal img{width:110px;height:110px;object-fit:cover;border-radius:10px;cursor:zoom-in;background:var(--sky)}
+.adjsel{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.adjmin{position:relative}.adjmin img{width:72px;height:72px;object-fit:cover;border-radius:10px;display:block}.adjmin button{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;border:0;background:var(--coral);color:#fff;font-weight:800;cursor:pointer;line-height:1}
+.opcs{display:grid;gap:8px}.opc{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;margin:0;font-size:15px;font-weight:400;color:var(--ink)}.opc input{width:auto;margin-top:3px;flex:none}.opc:has(input:checked){border-color:var(--sea);background:var(--sky)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.chips button{font:inherit;font-weight:700;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer}.chips button.on{background:var(--sea);color:#fff;border-color:var(--sea)}
 .sug .txt{white-space:pre-wrap}.sug .resp{margin-top:10px;padding:10px 12px;border-left:4px solid var(--mint);background:var(--mint-l);border-radius:10px}
 .formas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:8px}
 .forma{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px}.forma p{margin:4px 0 10px;font-size:14px}
@@ -299,7 +303,7 @@ const PRIV_VERSION='2026-11-25c';
 const PRIV_HTML=`<div class="priv">
 <p>Esta información explica qué hace el club con tus datos, según el Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica 3/2018.</p>
 <h3>Quién es el responsable</h3><p>Windsurf Club Sancti Petri, CIF G11455995. Domicilio: Poblado de Sancti Petri, 11130 Chiclana de la Frontera (Cádiz). Puedes escribirnos a <a href="mailto:windsurfclubsanctipetri@gmail.com">windsurfclubsanctipetri@gmail.com</a>.</p>
-<h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra, licencia federativa y tu foto si decides ponerla. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes. Además anotamos qué días entras en la web y qué apartados abres, para saber si la web es útil y mejorarla.</p>
+<h3>Qué datos tenemos</h3><p>Nombre, número de socio, DNI o NIE, dirección, teléfono, email, talla de licra, licencia federativa y tu foto si decides ponerla. También tus huecos en las naves, tus cuotas y pagos, tu puesto en las listas de espera, los avisos que te mandamos y las sugerencias que envíes con sus fotos (si eliges que una sugerencia sea pública, los demás socios la ven con tu número de socio, nunca con tu nombre). Además anotamos qué días entras en la web y qué apartados abres, para saber si la web es útil y mejorarla.</p>
 <h3>Para qué los usamos</h3><p>Para gestionar tu condición de socio: asignar huecos, cobrar las cuotas, llevar las listas de espera y avisarte de lo que afecta al club por email, SMS o WhatsApp.</p>
 <h3>Por qué podemos usarlos</h3><p>Porque eres socio y los estatutos del club lo requieren (artículo 6.1.b del RGPD), y porque la asociación tiene obligaciones legales, como llevar el libro de socios y la contabilidad (artículo 6.1.c).</p>
 <h3>Quién los ve</h3><p>Tú ves solo los tuyos. Tu foto solo la ves tú y la junta, y puedes quitarla cuando quieras. Las personas de la junta que gestionan el club ven los de todos los socios. El encargado de tu nave ve tu nombre, número y teléfono para organizar los huecos. Los demás socios ven tu número de socio (no tu nombre) en el hueco que ocupas en las naves y en tu puesto de la lista de espera, y los nombres y cargos de la Junta directiva, y el teléfono de un miembro de la Junta solo si lo ha permitido.</p>
@@ -385,11 +389,11 @@ async function montar(modo,entrada){
   S.misIds = S.gestor ? [] : S.misIdsReal; S.misNaves = S.gestor ? [] : S.misNavesReal;
   const bm=$('#bModo'); bm.classList.toggle('hidden', !(S.esGestor && S.misIdsReal.length)); bm.innerHTML = S.gestor ? '👤 <span class="largo">Ir a mi zona de </span>socio' : '⚙️ <span class="largo">Ir a la </span>gestión';
   $('#rol').textContent = S.gestor ? 'Panel de gestión' : 'Zona de socio';
-  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias'],['uso','Uso de la web']] : tabsSocio(S.misNaves.length);
+  await cargar();
+  const tabs = S.gestor ? [['resumen','Resumen'],['socios','Socios'],['naves','Naves'],['validar','Validaciones'],['campana','Campaña'],['cuotas','Cuotas'],['espera','Lista de espera'],['junta','Junta directiva'],['sugerencias','Sugerencias'],['tablon','Tablones de naves'],['uso','Uso de la web']] : tabsSocio(S.misNaves.length, navesTablon().ver.length);
   TABS = tabs;
   $('#nav').innerHTML = navHTML(tabs);
   $('#nav').onclick = e => { const k=e.target.dataset.k; if(k) ir(k); };
-  await cargar();
   if(entrada) usar('entrada');
   ir(tabs[0][0]);
 }
@@ -408,6 +412,8 @@ async function cargar(){
     q(sb.from('sugerencias').select('*').order('fecha',{ascending:false})),
   ]);
   Object.assign(S,{socios,naves,huecos,cuotas,pagos,tarifas,campanas,mensajes,comunicados,sugerencias});
+  S.tablon = await q(sb.from('tablon_nave').select('*').order('fecha',{ascending:false}));
+  { const {data}=await sb.rpc('sugerencias_publicas'); S.sugPub=data||[]; }
   S.cambios = (S.gestor||S.misNaves.length) ? await q(sb.from('cambios_nave').select('*').order('id',{ascending:false})) : [];
   if(S.gestor){
     S.encargados = await q(sb.from('encargados').select('*'));
@@ -424,13 +430,13 @@ async function cargar(){
 }
 function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); }catch(e){} }
 // Pestañas del socio: primero en las que puede hacer algo, luego las de solo consulta
-const tabsSocio = nN => [['yo','Mi ficha'],['sugerencias','Sugerencias'],...(nN?[['minave',nN>1?'Mis naves':'Mi nave']]:[]),['|','Solo consulta'],['mapa','Naves'],['esperasoc','Lista de espera'],['junta','Junta directiva']];
+const tabsSocio = (nN,nT) => [['yo','Mi ficha'],['sugerencias','Sugerencias'],...(nT?[['tablon',nT>1?'Tablón de mis naves':'Tablón de mi nave']]:[]),...(nN?[['minave',nN>1?'Mis naves':'Mi nave']]:[]),['|','Solo consulta'],['mapa','Naves'],['esperasoc','Lista de espera'],['junta','Junta directiva']];
 const navHTML = tabs => tabs.map(([k,t])=>k==='|'?`<span class="navsep">${t}:</span>`:`<button data-k="${k}">${t}</button>`).join('');
 function ir(k){
   if(S.previaSocio){ irPrevia(k); return; }
   usar(k);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,yo:vYo,uso:vUso,mapa:vMapa,esperasoc:vEsperaSoc})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,yo:vYo,uso:vUso,mapa:vMapa,esperasoc:vEsperaSoc})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -894,53 +900,112 @@ async function editarCampana(anio){
 async function guardarCampana(anio){ await q(sb.from('campanas').update({inicio:$('#cI').value,fin:$('#cF').value,prorroga_hasta:$('#cP').value||null,consecuencia:$('#cC').value.trim()||null,instrucciones_pago:$('#cIP').value.trim()||null,iban:$('#cIB').value.trim()||null}).eq('anio',anio)); dlg.close(); await cargar(); vCampana(); }
 async function nuevaCampana(){ const a=Math.max(...S.tarifas.map(t=>t.anio)); await q(sb.from('campanas').insert({anio:a,inicio:`${a-1}-12-01`,fin:`${a}-01-15`})); await cargar(); vCampana(); }
 
+// ---------- Fotos adjuntas (sugerencias y tablón): hasta 4, reducidas a 1280 px en el navegador, almacén privado «adjuntos» ----------
+const ADJ={}; S.adjUrl={};
+const fLargaTS = d => new Date(d).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
+const selectorFotos = k => { ADJ[k]=ADJ[k]||[]; return `<div class="adjsel" id="adj-${k}">${pintarSel(k)}</div>`; };
+function pintarSel(k){ const l=ADJ[k];
+  return `${l.map((x,i)=>`<span class="adjmin"><img src="${x.url}" alt="Foto ${i+1}"><button title="Quitar esta foto" onclick="quitarAdj('${k}',${i})">✕</button></span>`).join('')}${l.length<4?`<button class="btn sec small" onclick="elegirAdj('${k}')">📷 ${l.length?'Añadir otra foto':'Añadir fotos'}</button>`:''}<span class="muted" style="font-size:14px">${l.length?`${l.length} de 4 fotos`:'Opcional. Hasta 4 fotos.'}</span>`; }
+const refSel = k => { const e=$('#adj-'+k); if(e) e.innerHTML=pintarSel(k); };
+function elegirAdj(k){
+  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el socio añade fotos para explicarse mejor. No se sube nada.','Vista previa'); return; }
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.style.display='none'; document.body.appendChild(inp);
+  inp.onchange=async()=>{ const fs=[...inp.files]; inp.remove();
+    for(const f of fs){ if(ADJ[k].length>=4) break; try{ const blob=await reducirFoto(f); ADJ[k].push({blob,url:URL.createObjectURL(blob)}); }catch(e){ aviso('No se ha podido leer una de las imágenes. Prueba con otra foto.'); } }
+    if(fs.length>4) aviso('Solo caben 4 fotos. Se han añadido las primeras.');
+    refSel(k); };
+  inp.click();
+}
+function quitarAdj(k,i){ URL.revokeObjectURL(ADJ[k][i].url); ADJ[k].splice(i,1); refSel(k); }
+function limpiarAdj(k){ (ADJ[k]||[]).forEach(x=>URL.revokeObjectURL(x.url)); ADJ[k]=[]; }
+async function reducirFoto(f){
+  const url=URL.createObjectURL(f);
+  try{
+    const img=await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ko; i.src=url; });
+    const M=1280, r=Math.min(1,M/Math.max(img.naturalWidth,img.naturalHeight)), c=document.createElement('canvas');
+    c.width=Math.round(img.naturalWidth*r); c.height=Math.round(img.naturalHeight*r);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    return await new Promise((ok,ko)=>c.toBlob(b=>b?ok(b):ko(),'image/jpeg',0.78));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function subirAdj(pref,id,lista){ let ok=0;
+  for(let i=0;i<lista.length;i++){ const {error}=await sb.storage.from('adjuntos').upload(`${pref}/${id}/${i+1}.jpg`,lista[i].blob,{contentType:'image/jpeg',cacheControl:'604800'}); if(!error) ok++; }
+  return ok; }
+const galeria = (pref,id,n) => n ? `<div class="gal">${Array.from({length:n},(_,i)=>`<img data-adj="${pref}/${id}/${i+1}.jpg" alt="Foto ${i+1}" onclick="verFoto(this)">`).join('')}</div>` : '';
+async function pintarAdj(){
+  const els=[...document.querySelectorAll('img[data-adj]:not([src])')]; if(!els.length) return;
+  const falt=[...new Set(els.map(e=>e.dataset.adj).filter(p=>!S.adjUrl[p]))];
+  if(falt.length){ const {data}=await sb.storage.from('adjuntos').createSignedUrls(falt,86400); (data||[]).forEach((d,i)=>{ if(d&&d.signedUrl) S.adjUrl[falt[i]]=d.signedUrl; }); }
+  els.forEach(e=>{ const u=S.adjUrl[e.dataset.adj]; if(u) e.src=u; else e.remove(); });
+}
+function verFoto(img){ ventana({titulo:'Foto',html:`<img src="${esc(img.src)}" alt="" style="width:100%;border-radius:12px;display:block">`,ok:'Cerrar',cancelar:''}); }
+
 // ---------- Sugerencias ----------
 const TEMAS={instalaciones:'Instalaciones y naves',actividades:'Actividades y salidas',cuotas:'Cuotas y pagos',web:'La web',otro:'Otro tema'};
 const EST_SUG={nueva:['Nueva','warn'],leida:['Leída',''],respondida:['Respondida','ok']};
 let filtroSug='todas';
-function tarjetaSug(x,gestor){
-  const s=S.socio[x.socio_id]||{}, e=EST_SUG[x.estado];
-  return `<div class="sug ${x.estado}"><div class="flex">${gestor?`${avatar(s)}<span class="num">${s.numero??''}</span><b class="grow">${esc(s.nombre)}</b>`:'<span class="grow"></span>'}<span class="tag">${TEMAS[x.tema]}</span><span class="tag ${e[1]}">${e[0]}</span></div>
-    <p class="muted" style="margin:8px 0 4px;font-size:13px">${new Date(x.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
-    <div class="txt">${esc(x.texto)}</div>
+// modo: 'gestor' (con nombre), 'mia' (sin cabecera) u 'otro' (solo el número de socio)
+function tarjetaSug(x,modo){
+  const s=S.socio[x.socio_id]||{}, e=EST_SUG[x.estado], gestor=modo==='gestor';
+  const vis = modo==='otro' ? '' : `<span class="tag">${x.publica?'🌐 Pública':'🔒 Solo la junta'}</span>`;
+  const cab = gestor ? `${avatar(s)}<span class="num">${s.numero??''}</span><b class="grow">${esc(s.nombre)}</b>` : modo==='otro' ? `<b class="grow" style="white-space:nowrap">Socio ${x.numero}</b>` : '<span class="grow"></span>';
+  return `<div class="sug ${gestor?x.estado:''}"><div class="flex">${cab}<span class="tag">${TEMAS[x.tema]}</span>${vis}<span class="tag ${e[1]}">${e[0]}</span></div>
+    <p class="muted" style="margin:8px 0 4px;font-size:13px">${fLargaTS(x.fecha)}</p>
+    <div class="txt">${esc(x.texto)}</div>${galeria('sug',x.id,x.fotos)}
     ${x.respuesta?`<div class="resp"><b>Respuesta de la junta</b>${x.respondida_en?` <span class="muted" style="font-size:13px">· ${new Date(x.respondida_en).toLocaleDateString('es-ES')}</span>`:''}<div class="txt">${esc(x.respuesta)}</div></div>`:''}
-    ${gestor?`<div class="flex" style="margin-top:10px">${x.estado==='nueva'?`<button class="btn sec small" onclick="estadoSug(${x.id},'leida')">Marcar como leída</button>`:''}<button class="btn small" onclick="responderSug(${x.id})">${x.respuesta?'Cambiar respuesta':'Responder'}</button></div>`:''}</div>`;
+    ${gestor?`<div class="flex" style="margin-top:10px">${x.estado==='nueva'?`<button class="btn sec small" onclick="estadoSug(${x.id},'leida')">Marcar como leída</button>`:''}<button class="btn small" onclick="responderSug(${x.id})">${x.respuesta?'Cambiar respuesta':'Responder'}</button>${x.publica?`<button class="btn sec small" onclick="privadaSug(${x.id})">Dejar solo para la junta</button>`:''}</div>`:''}</div>`;
 }
 function vSugerencias(){
   if(S.gestor&&!S.previaSocio){
     const n=S.sugerencias.filter(x=>x.estado==='nueva').length;
-    const l=S.sugerencias.filter(x=>filtroSug==='todas'||x.estado===filtroSug);
+    const l=S.sugerencias.filter(x=>filtroSug==='todas'||(filtroSug==='publica'?x.publica:x.estado===filtroSug));
     $('#main').innerHTML=`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Buzón de sugerencias ${n?`<span class="tag warn">${n===1?'1 nueva':n+' nuevas'}</span>`:''}</h2>
-      <select id="fSug" style="width:auto"><option value="todas">Todas</option><option value="nueva">Nuevas</option><option value="leida">Leídas</option><option value="respondida">Respondidas</option></select></div>
-      <p class="muted">Lo que los socios proponen desde su ficha. Tu respuesta les aparece debajo de su sugerencia.</p>
-      ${l.length?l.map(x=>tarjetaSug(x,true)).join(''):'<p class="muted">No hay sugerencias todavía.</p>'}</div>`;
+      <select id="fSug" style="width:auto"><option value="todas">Todas</option><option value="nueva">Nuevas</option><option value="leida">Leídas</option><option value="respondida">Respondidas</option><option value="publica">Públicas</option></select></div>
+      <p class="muted">Lo que los socios proponen desde su ficha. Tu respuesta les aparece debajo de su sugerencia. Las marcadas «🌐 Pública» las ven también los demás socios, con el número de socio y sin el nombre, y con tu respuesta.</p>
+      ${l.length?l.map(x=>tarjetaSug(x,'gestor')).join(''):'<p class="muted">No hay sugerencias todavía.</p>'}</div>`;
     $('#fSug').value=filtroSug; $('#fSug').onchange=e=>{filtroSug=e.target.value; vSugerencias();};
-    return;
+    pintarAdj(); return;
   }
   const yo=S.previaSocio?S.socio[S.previaSocio]:S.socios.find(x=>(S.misIds||[]).includes(x.id));
   if(!yo){ $('#main').innerHTML=`<div class="card"><h2>No encontramos tu ficha</h2><p>Tu email no coincide con el de ningún socio del club.</p></div>`; return; }
   const mias=S.sugerencias.filter(x=>x.socio_id===yo.id);
+  const otras=(S.sugPub||[]).filter(x=>S.previaSocio?!mias.some(m=>m.id===x.id):!x.mia);
   $('#main').innerHTML=`${S.previaSocio?bannerPrevia():''}<div class="card aviso-camp"><h2>¿Qué mejorarías del club?</h2>
     <p style="margin-top:0">Cuéntanos tu idea, queja o propuesta. La lee la junta y te contestará aquí mismo.</p>
     <label>Tema</label><select id="sTema">${Object.entries(TEMAS).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select>
     <label>Tu sugerencia</label><textarea id="sTxt" rows="5" maxlength="3000" placeholder="Escribe aquí tu sugerencia…"></textarea>
-    <div class="flex" style="margin-top:12px"><button class="btn sun" onclick="enviarSug(${yo.id})">Enviar sugerencia</button><span id="sOk" class="muted"></span></div></div>
-    <div class="card"><h2>Mis sugerencias</h2>${mias.length?mias.map(x=>tarjetaSug(x,false)).join(''):'<p class="muted">Aún no has enviado ninguna.</p>'}</div>`;
+    <label>Fotos para explicarlo mejor</label>${selectorFotos('sug')}
+    <label>¿Quién la puede leer?</label>
+    <div class="opcs"><label class="opc"><input type="radio" name="sVis" value="junta" checked><span><b>Solo la junta</b><br><span class="muted">Nadie más la ve.</span></span></label>
+      <label class="opc"><input type="radio" name="sVis" value="publica"><span><b>Todos los socios</b><br><span class="muted">La verán los demás socios con tu número (socio ${yo.numero}), nunca con tu nombre. También verán la respuesta de la junta.</span></span></label></div>
+    <div class="flex" style="margin-top:12px"><button class="btn sun" id="sBtn" onclick="enviarSug(${yo.id})">Enviar sugerencia</button><span id="sOk" class="muted"></span></div></div>
+    <div class="card"><h2>Mis sugerencias</h2>${mias.length?mias.map(x=>tarjetaSug(x,'mia')).join(''):'<p class="muted">Aún no has enviado ninguna.</p>'}</div>
+    <div class="card"><h2>Sugerencias públicas de otros socios</h2><p class="muted" style="margin-top:-6px">Las que sus autores han querido compartir con todos.</p>${otras.length?otras.map(x=>tarjetaSug(x,'otro')).join(''):'<p class="muted">Todavía no hay ninguna.</p>'}</div>`;
+  pintarAdj();
 }
 async function enviarSug(socio_id){
-  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el socio envía su sugerencia a la junta. No se ha enviado nada.','Vista previa'); return; }
+  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el socio envía su sugerencia, solo a la junta o a todos los socios. No se ha enviado nada.','Vista previa'); return; }
   const texto=$('#sTxt').value.trim(); if(texto.length<3){ $('#sOk').textContent='Escribe tu sugerencia antes de enviarla.'; return; }
-  await q(sb.from('sugerencias').insert({socio_id,tema:$('#sTema').value,texto}));
-  await cargar(); vSugerencias(); $('#sOk').textContent='¡Gracias! La junta la ha recibido.';
+  const publica=document.querySelector('input[name=sVis]:checked')?.value==='publica', fotos=ADJ.sug||[];
+  $('#sBtn').disabled=true; $('#sOk').textContent='Enviando…';
+  let g; try{ [g]=await q(sb.from('sugerencias').insert({socio_id,tema:$('#sTema').value,texto,publica,fotos:fotos.length}).select('id')); }catch(e){ $('#sBtn').disabled=false; $('#sOk').textContent=''; return; }
+  const ok = fotos.length ? await subirAdj('sug',g.id,fotos) : 0;
+  limpiarAdj('sug'); await cargar(); vSugerencias();
+  $('#sOk').textContent = ok<fotos.length ? `Enviada, pero ${fotos.length-ok===1?'una foto no se ha podido subir':'algunas fotos no se han podido subir'}.` : publica ? '¡Gracias! La junta la ha recibido y ya la ven los demás socios.' : '¡Gracias! La junta la ha recibido.';
 }
 async function estadoSug(id,estado){ await q(sb.from('sugerencias').update({estado}).eq('id',id)); await cargar(); vSugerencias(); }
+async function privadaSug(id){
+  if(!await confirmar('Los demás socios dejarán de verla. El autor y la junta la seguirán viendo.',{ok:'Dejar solo para la junta'})) return;
+  await q(sb.from('sugerencias').update({publica:false}).eq('id',id)); await cargar(); vSugerencias();
+}
 async function responderSug(id){
   const x=S.sugerencias.find(z=>z.id===id);
   $('#dlgT').textContent='Responder sugerencia';
-  $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">${esc(S.socio[x.socio_id]?.nombre)} · ${TEMAS[x.tema]}</p><div class="txt" style="white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:12px">${esc(x.texto)}</div>
-    <label>Tu respuesta (la verá el socio en su ficha)</label><textarea id="rTxt" rows="5">${esc(x.respuesta)}</textarea>
+  $('#dlgB').innerHTML=`<p class="muted" style="margin-top:0">${esc(S.socio[x.socio_id]?.nombre)} · ${TEMAS[x.tema]} · ${x.publica?'🌐 Pública':'🔒 Solo la junta'}</p><div class="txt" style="white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:12px">${esc(x.texto)}</div>${galeria('sug',x.id,x.fotos)}
+    <label>Tu respuesta (la verá el socio en su ficha${x.publica?' y también los demás socios':''})</label><textarea id="rTxt" rows="5">${esc(x.respuesta)}</textarea>
     <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarRespuesta(${id})">Enviar respuesta</button></div>`;
   if(!dlg.open) dlg.showModal();
+  pintarAdj();
 }
 async function guardarRespuesta(id){
   const r=$('#rTxt').value.trim(); if(!r) return;
@@ -948,6 +1013,60 @@ async function guardarRespuesta(id){
   await q(sb.from('sugerencias').update({respuesta:r,estado:'respondida',respondida_en:new Date().toISOString()}).eq('id',id));
   await log(x.socio_id,'sugerencia respondida',r.slice(0,200));
   dlg.close(); await cargar(); vSugerencias();
+}
+
+// ---------- Tablón de cada nave: escriben el encargado (en la suya) y la junta; lo leen los socios con hueco en esa nave ----------
+let naveTab=null;
+function navesTablon(){
+  if(S.gestor&&!S.previaSocio){ const t=S.naves.map(n=>n.id); return {ver:t,escribir:t}; }
+  const ids=S.previaSocio?[S.previaSocio]:(S.misIds||[]);
+  const enc=S.previaSocio?[...new Set((S.encargados||[]).filter(e=>e.socio_id===S.previaSocio).map(e=>Number(e.nave_id)))]:(S.misNaves||[]);
+  const soc=new Set(S.huecos.filter(h=>ids.includes(h.socio_id)).map(h=>Number(h.nave_id)));
+  return {ver:S.naves.map(n=>n.id).filter(i=>soc.has(i)||enc.includes(i)), escribir:enc};
+}
+function avisoTablon(){
+  let visto=0; if(!S.previaSocio){ try{ visto=Number(localStorage.getItem('tablonVisto')||0); }catch(e){} }
+  const {ver}=navesTablon(), desde=Math.max(visto, Date.now()-30*86400e3);
+  const l=(S.tablon||[]).filter(m=>!m.retirado&&ver.includes(m.nave_id)&&new Date(m.fecha).getTime()>desde);
+  if(!l.length) return '';
+  const nv=[...new Set(l.map(m=>S.nave[m.nave_id]?.nombre))].join(' y ');
+  return `<div class="card aviso-camp"><div class="flex"><span class="grow">📌 <b>${l.length===1?'Hay 1 mensaje nuevo':'Hay '+l.length+' mensajes nuevos'}</b> en el tablón de ${esc(nv)}.</span><button class="btn small" onclick="ir('tablon')">Leer</button></div></div>`;
+}
+function vTablon(){
+  const {ver,escribir}=navesTablon(), G=S.gestor&&!S.previaSocio, cab=S.previaSocio?bannerPrevia():'';
+  if(!ver.length){ $('#main').innerHTML=`${cab}<div class="card"><h2>Tablón de la nave</h2><p>Todavía no tienes hueco en ninguna nave. Cuando lo tengas, aquí verás los mensajes del encargado y de la junta.</p></div>`; return; }
+  if(!ver.includes(naveTab)) naveTab=ver[0];
+  if(!S.previaSocio&&!S.gestor){ try{ localStorage.setItem('tablonVisto',String(Date.now())); }catch(e){} }
+  const n=S.nave[naveTab], puede=escribir.includes(naveTab), ids=S.previaSocio?[S.previaSocio]:(S.misIds||[]);
+  const yo=S.socio[ids[0]];
+  const lista=(S.tablon||[]).filter(m=>m.nave_id===naveTab&&!m.retirado);
+  const chips = ver.length>1 ? `<div class="chips">${ver.map(i=>`<button class="${i===naveTab?'on':''}" onclick="naveTab=${i};vTablon()">${esc(S.nave[i].nombre)}</button>`).join('')}</div>` : '';
+  const intro = G ? `Aquí la junta escribe a los socios de cada nave, y cada encargado en la suya. Cada mensaje lo ven solo los socios con hueco en esa nave. Tus mensajes salen firmados como «La junta directiva».`
+    : puede ? `Eres el encargado. Lo que escribas aquí lo verán todos los socios con hueco en ${esc(n.nombre)}. Saldrá firmado como «Encargado de ${esc(n.nombre)}${yo?` (socio ${yo.numero})`:''}».`
+    : `Aquí el encargado de ${esc(n.nombre)} y la junta dejan avisos para los socios de esta nave.`;
+  const form = puede ? `<label>Nuevo mensaje para ${esc(n.nombre)}</label><textarea id="tTxt" rows="4" maxlength="3000" placeholder="Por ejemplo: recordad dejar el material dentro de vuestro hueco…"></textarea>
+    <label>Fotos</label>${selectorFotos('tab')}
+    <div class="flex" style="margin-top:12px"><button class="btn sun" id="tBtn" onclick="publicarTablon()">Publicar en el tablón</button><span id="tOk" class="muted"></span></div>` : '';
+  $('#main').innerHTML=`${cab}<div class="card"><h2>Tablón de ${ver.length>1&&!G?'mis naves':esc(n.nombre)}</h2>${chips}<p class="muted" style="margin-top:0">${intro}</p>${form}</div>
+    <div class="card"><h2>Mensajes de ${esc(n.nombre)}</h2>${lista.length?lista.map(m=>{
+      const quita = G || (!S.previaSocio && m.autor_socio && ids.includes(m.autor_socio)) || (S.previaSocio && m.autor_socio===S.previaSocio);
+      return `<div class="sug"><b>📌 ${esc(m.firma)}</b><p class="muted" style="margin:4px 0 0;font-size:13px">${fLargaTS(m.fecha)}</p><div class="txt" style="margin-top:8px">${esc(m.texto)}</div>${galeria('tablon',m.id,m.fotos)}${quita?`<div class="flex" style="margin-top:10px"><button class="btn sec small" onclick="retirarTablon(${m.id})">Retirar este mensaje</button></div>`:''}</div>`;}).join(''):'<p class="muted">Todavía no hay mensajes.</p>'}</div>`;
+  pintarAdj();
+}
+async function publicarTablon(){
+  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el encargado publica su mensaje para los socios de la nave. No se ha publicado nada.','Vista previa'); return; }
+  const texto=$('#tTxt').value.trim(); if(texto.length<3){ $('#tOk').textContent='Escribe el mensaje antes de publicarlo.'; return; }
+  const fotos=ADJ.tab||[], G=S.gestor;
+  $('#tBtn').disabled=true; $('#tOk').textContent='Publicando…';
+  let m; try{ [m]=await q(sb.from('tablon_nave').insert({nave_id:naveTab,autor_socio:G?null:(S.misIds||[])[0],texto,fotos:fotos.length}).select('id')); }catch(e){ $('#tBtn').disabled=false; $('#tOk').textContent=''; return; }
+  const ok = fotos.length ? await subirAdj('tablon',m.id,fotos) : 0;
+  limpiarAdj('tab'); await cargar(); vTablon();
+  $('#tOk').textContent = ok<fotos.length ? 'Publicado, pero alguna foto no se ha podido subir.' : '¡Publicado! Ya lo ven los socios de la nave.';
+}
+async function retirarTablon(id){
+  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el autor puede retirar su mensaje. No se ha cambiado nada.','Vista previa'); return; }
+  if(!await confirmar('El mensaje dejará de verse en el tablón.',{ok:'Retirar'})) return;
+  await q(sb.rpc('retirar_mensaje_tablon',{p_id:id})); await cargar(); vTablon();
 }
 
 // ---------- Lista de espera ----------
@@ -1010,7 +1129,7 @@ async function vEsperaSoc(){
 }
 
 // ---------- Uso de la web (solo junta) ----------
-const NOMBRE_VISTA={yo:'Mi ficha',mapa:'Naves (socio)',esperasoc:'Lista de espera (socio)',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web'};
+const NOMBRE_VISTA={yo:'Mi ficha',mapa:'Naves (socio)',esperasoc:'Lista de espera (socio)',minave:'Mi nave',junta:'Junta directiva',sugerencias:'Sugerencias',tablon:'Tablón de nave',resumen:'Resumen',socios:'Socios',naves:'Naves',validar:'Validaciones',campana:'Campaña',cuotas:'Cuotas',espera:'Lista de espera',uso:'Uso de la web'};
 const haceTxt = t => { if(!t) return '<span class="muted">nunca</span>'; const dia=x=>{const f=new Date(x); return Date.UTC(f.getFullYear(),f.getMonth(),f.getDate());}; const d=Math.round((dia(Date.now())-dia(t))/86400e3); return d<1?'hoy':d===1?'ayer':`hace ${d} días`; };
 async function vUso(){
   $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
@@ -1078,12 +1197,12 @@ function elegirVistaSocio(){
 function verComoSocio(id){
   dlg.close(); S.previaSocio=id; S.previaEnc=null;
   const nv=[...new Set((S.encargados||[]).filter(e=>e.socio_id===id).map(e=>e.nave_id))];
-  $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML=navHTML(tabsSocio(nv.length)); irPrevia('yo');
+  $('#rol').textContent='Vista previa: zona de socio'; $('#nav').innerHTML=navHTML(tabsSocio(nv.length, navesTablon().ver.length)); irPrevia('yo');
 }
 function irPrevia(k){
   const id=S.previaSocio; document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
   S.vista=k; S.previaEnc = k==='minave' ? [...new Set((S.encargados||[]).filter(e=>e.socio_id===id).map(e=>e.nave_id))] : null;
-  ({yo:()=>vYo(id),mapa:vMapa,esperasoc:vEsperaSoc,minave:vNaves,junta:vJunta,sugerencias:vSugerencias})[k](); window.scrollTo(0,0);
+  ({yo:()=>vYo(id),mapa:vMapa,esperasoc:vEsperaSoc,minave:vNaves,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon})[k](); window.scrollTo(0,0);
 }
 const bannerPrevia = () => { const s=S.socio[S.previaSocio]; return `<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${s?esc(s.nombre):'el socio'} cuando entra con su email. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`; };
 function volverPanel(){ const deNaves=!!S.previaEnc&&!S.previaSocio; S.previaEnc=null; S.previaSocio=null; if(deNaves){ $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('naves'); return; } $('#rol').textContent='Panel de gestión'; $('#nav').innerHTML=TABS.map(([k,t])=>`<button data-k="${k}">${t}</button>`).join(''); ir('socios'); }
@@ -1133,7 +1252,7 @@ function vYo(prev){
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email. Arriba tienes sus mismas pestañas. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,64)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
     ${botonesFoto(yo,!!prev)}
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
-    <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>${enlacesTiempo()}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}
+    <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>${avisoTablon()}${enlacesTiempo()}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}
     <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre,telefono:S.socio[e.socio_id]?.telefono};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>${e.telefono?` · <a href="tel:${esc(e.telefono)}">${esc(e.telefono)}</a>`:''}`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
     <div class="card"><h2>Mis cuotas</h2><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
     ${cs.map(c=>`<tr><td>${c.anio}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td><td>${c.estado==='pendiente'&&!prev?`<div class="flex"><button class="btn small" onclick="pagarTPV(${c.id},'tarjeta')">Tarjeta</button><button class="btn bizum small" onclick="pagarTPV(${c.id},'bizum')">Bizum</button></div>`:''}</td></tr>`).join('')}</table></div>
