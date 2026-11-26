@@ -107,6 +107,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .hueco.ces{background:var(--sun-l)}
 /* Barras de ocupación */
 .bar{height:14px;background:var(--bg);border-radius:999px;overflow:hidden;border:1px solid var(--line)}.bar i{display:block;height:100%;border-radius:999px;background:var(--c)}
+.bancaja{display:grid;grid-template-columns:1fr 1fr;gap:14px}.bc{border:1px solid var(--line);border-radius:14px;padding:12px 14px}.bc h3{margin:0 0 8px}.bc .flex{padding:3px 0;font-size:15px}.bc .hay{border-top:1px solid var(--line);margin-top:6px;padding-top:8px;font-size:17px}@media (max-width:600px){.bancaja{grid-template-columns:1fr}}
 .catf{margin:12px 0;font-weight:700}.catf .flex{margin-bottom:5px}.catf b{white-space:nowrap}
 .ocup{display:grid;grid-template-columns:90px 1fr 70px;gap:12px;align-items:center;margin:10px 0;font-weight:700}
 .ocup .n{text-align:right;color:var(--muted);font-size:14px}
@@ -1370,7 +1371,7 @@ const CONT_INI=2027;
 const eurC = n => { n=Number(n)||0; try{ return n.toLocaleString('es-ES',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2,useGrouping:'always'})+' €'; }catch(e){ return eur(n); } };
 const CAT_GASTO=['Mantenimiento y reparaciones','Material y equipamiento','Seguros','Luz y agua','Limpieza','Actividades y eventos','Gestoría y trámites','Impuestos y tasas','Comisiones del banco','Web y oficina','Otros gastos'];
 const CAT_INGRESO=['Subvenciones','Patrocinios','Donaciones','Venta de material','Otros ingresos'];
-const METODOS=['Transferencia','Domiciliación','Tarjeta','Bizum','Efectivo'];
+const CUENTAS={banco:'🏦 Banco',caja:'💰 Caja de caudales'};
 const MESES=['Antes del 1 de enero','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let contAnio=null;
 const aniosCont = () => { const h=Math.max(CONT_INI,ANIO); return Array.from({length:h-CONT_INI+1},(_,i)=>h-i); };
@@ -1381,6 +1382,7 @@ const leerEuros = t => { let x=String(t||'').replace(/[€\s]/g,''); if(!x) retu
 const notaInicioCont = a => a===CONT_INI && ANIO<CONT_INI ? `<p class="muted" style="margin-bottom:0">Las cuentas empiezan el <b>1 de enero de ${CONT_INI}</b>. Las cuotas de ${CONT_INI} que se pagan desde diciembre ya cuentan aquí.</p>` : '';
 // Año contable de un pago: el de su cuota (la de 2027 pagada en diciembre cuenta en 2027) o el del pago si es posterior
 const ejercicioPago = p => { const c=S.cuotas.find(k=>k.id===p.cuota_id), y=Number(String(p.fecha).slice(0,4)); return Math.max(c?c.anio:y,y); };
+const cuentaPago = p => p.metodo==='efectivo'?'caja':'banco';
 const catPago = p => ({entrada:'Cuotas de entrada',atrasos:'Cuotas atrasadas'})[S.cuotas.find(k=>k.id===p.cuota_id)?.tipo] || 'Cuotas anuales';
 
 function htmlResumenCont(r,G){
@@ -1388,15 +1390,23 @@ function htmlResumenCont(r,G){
   const si=r.saldo_inicial==null?null:Number(r.saldo_inicial), max=Math.max(1,...(r.ingresos||[]).map(x=>+x.importe),...(r.gastos||[]).map(x=>+x.importe));
   const barras=(l,color,vacio)=>l.length?l.map(x=>`<div class="catf"><div class="flex"><span class="grow">${esc(x.categoria)}</span><b>${eurC(x.importe)}</b></div><div class="bar"><i style="--c:${color};width:${Math.max(2,x.importe/max*100)}%"></i></div></div>`).join(''):`<p class="muted">${vacio}</p>`;
   const meses=(r.meses||[]).filter(m=>m.ingresos||m.gastos);
+  const cs=(r.cuentas||[{cuenta:'banco'},{cuenta:'caja'}]).map(c=>{ const x={cuenta:c.cuenta,inicial:Number(c.inicial)||0,entra:Number(c.entra)||0,sale:Number(c.sale)||0,te:Number(c.traspaso_entra)||0,ts:Number(c.traspaso_sale)||0}; x.hay=x.inicial+x.entra-x.sale+x.te-x.ts; return x; });
   return `<div class="kpis">
     <div class="kpi k2"><div class="ico">${ICO.euro}</div><span>Entra (ingresos)</span><b>${eurC(ing)}</b><span>${(r.ingresos||[]).reduce((a,x)=>a+x.n,0)} cobros</span></div>
     <div class="kpi k4"><div class="ico">${ICO.euro}</div><span>Sale (gastos)</span><b>${eurC(gas)}</b><span>${(r.gastos||[]).reduce((a,x)=>a+x.n,0)} gastos</span></div>
     <div class="kpi k1"><div class="ico">${ICO.ok}</div><span>Resultado del año</span><b style="color:${res<0?'var(--bad)':'inherit'}">${res<0?'−':''}${eurC(Math.abs(res))}</b><span>${res>=0?'Sobra':'Falta'}: lo que entra menos lo que sale</span></div>
-    <div class="kpi k3"><div class="ico">${ICO.euro}</div><span>Dinero del club</span><b>${si==null?'—':eurC(si+res)}</b><span>${si==null?(G?'Falta poner el dinero del 1 de enero':'La junta aún no lo ha puesto'):`Había ${eurC(si)} el 1 de enero`}</span></div>
+    <div class="kpi k3"><div class="ico">${ICO.euro}</div><span>Dinero del club</span><b>${si==null?'—':eurC(cs.reduce((t,c)=>t+c.hay,0))}</b><span>${si==null?(G?'Falta poner el dinero del 1 de enero':'La junta aún no lo ha puesto'):cs.map(c=>`${c.cuenta==='banco'?'Banco':'Caja'} ${c.hay<0?'−':''}${eurC(Math.abs(c.hay))}`).join(' · ')}</span></div>
   </div>
+  <div class="card"><h2>Banco y caja de caudales</h2><div class="bancaja">${cs.map(c=>`<div class="bc"><h3>${CUENTAS[c.cuenta]}</h3>
+    <div class="flex"><span class="grow">Había el 1 de enero</span><b>${si==null?'—':eurC(c.inicial)}</b></div>
+    <div class="flex"><span class="grow">Entra</span><b style="color:var(--ok)">+${eurC(c.entra)}</b></div>
+    <div class="flex"><span class="grow">Sale</span><b style="color:var(--bad)">−${eurC(c.sale)}</b></div>
+    ${c.te||c.ts?`<div class="flex"><span class="grow">${c.cuenta==='banco'?'Traspasos con la caja':'Traspasos con el banco'}</span><b>${c.te-c.ts<0?'−':'+'}${eurC(Math.abs(c.te-c.ts))}</b></div>`:''}
+    <div class="flex hay"><span class="grow">Hay ahora</span><b style="${c.hay<0?'color:var(--bad)':''}">${si==null?'—':(c.hay<0?'−':'')+eurC(Math.abs(c.hay))}</b></div>${si!=null&&c.hay<0&&G?'<p class="err" style="margin:6px 0 0;font-size:14px">⚠️ No puede quedar en negativo. Revisa los apuntes o el dinero del 1 de enero.</p>':''}</div>`).join('')}</div>
+    ${si==null?`<p class="muted" style="margin-bottom:0">${G?'Pulsa «Dinero el 1 de enero» y escribe lo que había en el banco y en la caja.':'Falta que la junta ponga lo que había el 1 de enero.'}</p>`:''}</div>
   <div class="card"><h2>¿De dónde viene el dinero?</h2>${barras(r.ingresos||[],'var(--mint)','Todavía no ha entrado nada este año.')}</div>
   <div class="card"><h2>¿En qué se gasta?</h2>${barras(r.gastos||[],'var(--coral)','Todavía no hay gastos apuntados este año.')}</div>
-  ${meses.length?`<div class="card"><h2>Mes a mes</h2><table><thead><tr><th>Mes</th><th style="text-align:right">Entra</th><th style="text-align:right">Sale</th></tr></thead><tbody>${meses.map(m=>`<tr><td>${MESES[m.mes]}</td><td style="text-align:right">${m.ingresos?eurC(m.ingresos):'—'}</td><td style="text-align:right">${m.gastos?eurC(m.gastos):'—'}</td></tr>`).join('')}</tbody></table>${r.ultimo?`<p class="muted" style="font-size:14px;margin-bottom:0">Último apunte: ${fLarga(r.ultimo)}.</p>`:''}</div>`:''}`;
+  ${meses.length?`<div class="card"><h2>Mes a mes</h2><table><thead><tr><th>Mes</th><th style="text-align:right">Entra</th><th style="text-align:right">Sale</th></tr></thead><tbody>${meses.map(m=>`<tr><td>${MESES[m.mes]}</td><td style="text-align:right;white-space:nowrap">${m.ingresos?eurC(m.ingresos):'—'}</td><td style="text-align:right;white-space:nowrap">${m.gastos?eurC(m.gastos):'—'}</td></tr>`).join('')}</tbody></table>${r.ultimo?`<p class="muted" style="font-size:14px;margin-bottom:0">Último apunte: ${fLarga(r.ultimo)}.</p>`:''}</div>`:''}`;
 }
 
 // Socios (y «Ver como un socio»): solo el resumen
@@ -1414,23 +1424,27 @@ async function vCuentas(){
 async function vContab(){
   const a=anioCont();
   $('#main').innerHTML='<div class="card"><p class="muted">Cargando…</p></div>';
-  const [r,movs,sal]=await Promise.all([sb.rpc('contabilidad_resumen',{p_anio:a}),
+  const [r,movs,sal,tras]=await Promise.all([sb.rpc('contabilidad_resumen',{p_anio:a}),
     q(sb.from('contab_movimientos').select('*').gte('fecha',`${a}-01-01`).lte('fecha',`${a}-12-31`).order('fecha',{ascending:false}).order('id',{ascending:false})),
-    q(sb.from('contab_saldos').select('*').eq('anio',a))]);
+    q(sb.from('contab_saldos').select('*').eq('anio',a)),
+    q(sb.from('contab_traspasos').select('*').gte('fecha',`${a}-01-01`).lte('fecha',`${a}-12-31`).order('fecha',{ascending:false}))]);
   if(S.vista!=='contab') return;
-  S.contMov=movs; S.contSaldo=sal[0]||null;
+  S.contMov=movs; S.contSaldo=sal[0]||null; S.contTras=tras;
   const pagosA=S.pagos.filter(p=>ejercicioPago(p)===a), cobrado=pagosA.reduce((s,p)=>s+Number(p.importe),0);
+  const filaT=t=>`<a href="#" onclick="verTraspaso(${t.id});return false" style="${t.anulado?'opacity:.55':''}"><span class="muted" style="min-width:52px;font-size:14px">${new Date(t.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
+    <span class="grow"><b>🔁 ${t.desde==='banco'?'Del banco a la caja':'De la caja al banco'}</b><br><span class="muted" style="font-size:14px">${esc(t.concepto||'Traspaso')}</span></span>${t.anulado?'<span class="tag bad">Anulado</span>':''}<b style="white-space:nowrap">${eurC(t.importe)}</b></a>`;
+  const efe=pagosA.filter(p=>cuentaPago(p)==='caja').reduce((s,p)=>s+Number(p.importe),0);
   const pend=S.cuotas.filter(c=>c.anio===a&&c.estado==='pendiente').reduce((s,c)=>s+Number(c.importe)-Number(c.descuento),0);
   const fila=m=>`<a href="#" onclick="editarMov(${m.id});return false" style="${m.anulado?'opacity:.55':''}"><span class="muted" style="min-width:52px;font-size:14px">${new Date(m.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
-    <span class="grow"><b>${esc(m.concepto)}</b>${m.fotos?' 📎':''}<br><span class="muted" style="font-size:14px">${esc(m.categoria)}${m.proveedor?' · '+esc(m.proveedor):''}</span></span>
+    <span class="grow"><b>${esc(m.concepto)}</b>${m.fotos?' 📎':''}<br><span class="muted" style="font-size:14px">${m.cuenta==='caja'?'💰 Caja':'🏦 Banco'} · ${esc(m.categoria)}${m.proveedor?' · '+esc(m.proveedor):''}</span></span>
     ${m.anulado?'<span class="tag bad">Anulado</span>':''}<b style="white-space:nowrap;color:${m.tipo==='gasto'?'var(--bad)':'var(--ok)'}">${m.tipo==='gasto'?'−':'+'}${eurC(m.importe)}</b></a>`;
   $('#main').innerHTML=`<div class="card aviso-camp"><div class="flex"><h2 class="grow" style="margin:0">Contabilidad ${a}</h2>${selAnioCont()}</div>
     <p>Los cobros de cuotas entran solos. Aquí apuntáis los <b>gastos</b> (con la foto de la factura) y los <b>otros ingresos</b>, como una subvención. Los socios ven el resumen en su pestaña «Cuentas del club», sin nombres.</p>
-    <div class="flex"><button class="btn sun" onclick="editarMov(null,'gasto')">➖ Apuntar un gasto</button><button class="btn sec" onclick="editarMov(null,'ingreso')">➕ Apuntar otro ingreso</button><button class="btn sec" onclick="saldoInicial(${a})">🏦 Dinero el 1 de enero</button><button class="btn sec" onclick="descargarCont(${a})">⬇️ Descargar para Excel</button></div>${notaInicioCont(a)}</div>`
+    <div class="flex"><button class="btn sun" onclick="editarMov(null,'gasto')">➖ Apuntar un gasto</button><button class="btn sec" onclick="editarMov(null,'ingreso')">➕ Apuntar otro ingreso</button><button class="btn sec" onclick="nuevoTraspaso()">🔁 Pasar dinero entre banco y caja</button><button class="btn sec" onclick="saldoInicial(${a})">📅 Dinero el 1 de enero</button><button class="btn sec" onclick="descargarCont(${a})">⬇️ Descargar para Excel</button></div>${notaInicioCont(a)}</div>`
     + htmlResumenCont(r.data||{ingresos:[],gastos:[],meses:[]},true)
     + `<div class="card"><h2>Apuntes de ${a}</h2><div class="lista">
-      <div class="flex" style="padding:8px 10px"><span class="muted" style="min-width:52px;font-size:14px">Solos</span><span class="grow"><b>Cobros de cuotas</b><br><span class="muted" style="font-size:14px">${pagosA.length} pagos, salen de la pestaña Cuotas${pend?` · faltan ${eurC(pend)} por cobrar`:''}</span></span><b style="color:var(--ok)">+${eurC(cobrado)}</b></div>
-      ${movs.map(fila).join('')||'<p class="muted" style="padding:0 10px">Todavía no hay gastos ni otros ingresos apuntados.</p>'}</div></div>`;
+      <div class="flex" style="padding:8px 10px"><span class="muted" style="min-width:52px;font-size:14px">Solos</span><span class="grow"><b>Cobros de cuotas</b><br><span class="muted" style="font-size:14px">${pagosA.length} pagos, salen de la pestaña Cuotas${efe?` · ${eurC(efe)} en efectivo a la caja`:''}${pend?` · faltan ${eurC(pend)} por cobrar`:''}</span></span><b style="color:var(--ok)">+${eurC(cobrado)}</b></div>
+      ${[...movs.map(m=>({f:m.fecha,id:m.id,h:fila(m)})),...tras.map(t=>({f:t.fecha,id:t.id,h:filaT(t)}))].sort((x,y)=>x.f<y.f?1:x.f>y.f?-1:y.id-x.id).map(x=>x.h).join('')||'<p class="muted" style="padding:0 10px">Todavía no hay gastos ni otros ingresos apuntados.</p>'}</div></div>`;
 }
 
 function editarMov(id,tipo){
@@ -1445,7 +1459,7 @@ function editarMov(id,tipo){
     <label>Concepto</label><input id="mvT" maxlength="200" value="${esc(m?.concepto)}" placeholder="${tipo==='gasto'?'Por ejemplo: arreglo de la puerta de la Nave 2':'Por ejemplo: subvención del Ayuntamiento'}">
     <label>Importe (€)</label><input id="mvI" inputmode="decimal" value="${m?String(m.importe).replace('.',','):''}" placeholder="Por ejemplo: 120,50">
     <label>${tipo==='gasto'?'A quién se paga':'De quién viene'} <span class="muted">(opcional; no lo ven los socios)</span></label><input id="mvP" maxlength="120" value="${esc(m?.proveedor)}">
-    <label>Cómo se ${tipo==='gasto'?'pagó':'cobró'}</label><select id="mvM">${METODOS.map(x=>`<option${(m?.metodo||'Transferencia')===x?' selected':''}>${x}</option>`).join('')}</select>
+    <label>${tipo==='gasto'?'¿De dónde sale el dinero?':'¿Dónde entra el dinero?'}</label><select id="mvK">${Object.entries(CUENTAS).map(([k,t])=>`<option value="${k}"${(m?.cuenta||'banco')===k?' selected':''}>${t}</option>`).join('')}</select>
     <label>Notas <span class="muted">(opcional)</span></label><textarea id="mvN" rows="2">${esc(m?.notas)}</textarea>
     <label>${tipo==='gasto'?'Foto de la factura o ticket':'Foto del justificante'}</label>${m&&m.fotos?galeria('cont',m.id,m.fotos)+'<p class="muted" style="font-size:14px">Para cambiar la foto, anula este apunte y apúntalo otra vez.</p>':selectorFotos('cont')}
     <p class="err" id="mvE"></p>
@@ -1460,7 +1474,7 @@ async function guardarMov(id,tipo){
   if(cat.length<2) return E('Escribe el nombre de la categoría.');
   if(concepto.length<2) return E('Escribe el concepto.');
   if(!importe||importe<=0) return E('Escribe el importe, por ejemplo 120,50.');
-  const fotos=ADJ.cont||[], row={tipo,fecha,categoria:cat,concepto,importe,proveedor:$('#mvP').value.trim()||null,metodo:$('#mvM').value,notas:$('#mvN').value.trim()||null};
+  const fotos=ADJ.cont||[], row={tipo,fecha,categoria:cat,concepto,importe,proveedor:$('#mvP').value.trim()||null,cuenta:$('#mvK').value,notas:$('#mvN').value.trim()||null};
   if(!m||!m.fotos) row.fotos=fotos.length;
   $('#mvB').disabled=true; let nid=id;
   try{
@@ -1479,15 +1493,36 @@ async function anularMov(id){
   await q(sb.from('contab_movimientos').update({anulado:true,motivo_anulacion:motivo}).eq('id',id)); dlg.close(); vContab();
 }
 async function saldoInicial(a){
-  const v=await pedir(`Dinero en la cuenta el 1 de enero de ${a}`,{label:'Lo que había en el banco y en caja ese día (€)',valor:S.contSaldo?String(S.contSaldo.saldo_inicial).replace('.',','):'',ayuda:'Por ejemplo: 8.500',obligatorio:true},{validar:v=>Number.isNaN(leerEuros(v[0]))?'Escribe un importe, por ejemplo 8.500':''});
-  if(v==null) return;
-  await q(sb.from('contab_saldos').upsert({anio:a,saldo_inicial:leerEuros(v)})); vContab();
+  const s=S.contSaldo, f=v=>v==null?'':String(v).replace('.',',');
+  const v=await ventana({titulo:`Dinero el 1 de enero de ${a}`,texto:'Escribe lo que había ese día en cada sitio.',ok:'Guardar',
+    campos:[{label:'🏦 En el banco (€)',valor:s?f(s.saldo_inicial):'',ayuda:'Por ejemplo: 8.500',obligatorio:true},{label:'💰 En la caja de caudales (€)',valor:s?f(s.saldo_caja):'',ayuda:'Por ejemplo: 230',obligatorio:true}],
+    validar:v=>v.some(x=>Number.isNaN(leerEuros(x))||leerEuros(x)==null)?'Escribe los dos importes, por ejemplo 8.500 y 230.':''});
+  if(!v) return;
+  await q(sb.from('contab_saldos').upsert({anio:a,saldo_inicial:leerEuros(v[0]),saldo_caja:leerEuros(v[1])})); vContab();
+}
+async function nuevoTraspaso(){
+  const hoy=new Date().toISOString().slice(0,10), ini=`${CONT_INI}-01-01`;
+  const v=await ventana({titulo:'Pasar dinero entre banco y caja',ok:'Guardar',
+    campos:[{label:'Qué haces',opciones:[['banco','Saco dinero del banco y lo meto en la caja'],['caja','Saco dinero de la caja y lo ingreso en el banco']]},
+      {label:'Fecha',tipo:'date',valor:hoy<ini?ini:hoy,obligatorio:true},{label:'Importe (€)',ayuda:'Por ejemplo: 200',obligatorio:true},{label:'Nota (opcional)',ayuda:'Por ejemplo: para pagar la limpieza'}],
+    validar:v=>v[1]<ini?`La fecha tiene que ser del 1 de enero de ${CONT_INI} en adelante.`:(!(leerEuros(v[2])>0)?'Escribe el importe, por ejemplo 200.':'')});
+  if(!v) return;
+  await q(sb.from('contab_traspasos').insert({desde:v[0],hacia:v[0]==='banco'?'caja':'banco',fecha:v[1],importe:leerEuros(v[2]),concepto:v[3]||null}));
+  const a=Number(v[1].slice(0,4)); if(a!==anioCont()) contAnio=a; vContab();
+}
+async function verTraspaso(id){
+  const t=S.contTras.find(x=>x.id===id), txt=`${t.desde==='banco'?'Del banco a la caja':'De la caja al banco'}: ${eurC(t.importe)} el ${fLarga(t.fecha)}.${t.concepto?' '+t.concepto+'.':''} Apuntado por ${t.creado_por}.`;
+  if(t.anulado){ aviso(`${txt}\n\nAnulado${t.motivo_anulacion?': '+t.motivo_anulacion:''}.`,'Traspaso'); return; }
+  const r=await ventana({titulo:'Traspaso',texto:txt,campos:[{label:'Si está mal, escribe el motivo para anularlo',ayuda:'Por ejemplo: apuntado dos veces'}],ok:'Anular el traspaso',cancelar:'Cerrar',peligro:true,validar:v=>v[0]?'':'Escribe el motivo para anularlo.'});
+  if(!r) return;
+  await q(sb.from('contab_traspasos').update({anulado:true,motivo_anulacion:r[0]}).eq('id',id)); vContab();
 }
 function descargarCont(a){
   const n=x=>String(Number(x).toFixed(2)).replace('.',','), c=t=>`"${String(t??'').replace(/"/g,'""')}"`;
-  const filas=[...S.pagos.filter(p=>ejercicioPago(p)===a).map(p=>[p.fecha,'Ingreso',catPago(p),`Cuota socio nº ${S.socio[p.socio_id]?.numero??''}`,S.socio[p.socio_id]?.nombre,p.metodo,n(p.importe),'','']),
-    ...S.contMov.filter(m=>!m.anulado).map(m=>[m.fecha,m.tipo==='gasto'?'Gasto':'Ingreso',m.categoria,m.concepto,m.proveedor,m.metodo,n(m.tipo==='gasto'?-m.importe:m.importe),m.fotos?'Sí':'No',m.notas])].sort((x,y)=>x[0]<y[0]?-1:1);
-  const csv='﻿'+[['Fecha','Tipo','Categoría','Concepto','Quién','Cómo','Importe','Factura','Notas'],...filas].map(f=>f.map(c).join(';')).join('\r\n');
+  const filas=[...S.pagos.filter(p=>ejercicioPago(p)===a).map(p=>[p.fecha,'Ingreso',catPago(p),`Cuota socio nº ${S.socio[p.socio_id]?.numero??''}`,S.socio[p.socio_id]?.nombre,cuentaPago(p)==='caja'?'Caja':'Banco',n(p.importe),'','']),
+    ...(S.contTras||[]).filter(t=>!t.anulado).flatMap(t=>[[t.fecha,'Traspaso','Traspaso',t.concepto||'Traspaso',t.desde==='banco'?'A la caja':'Al banco',t.desde==='banco'?'Banco':'Caja',n(-t.importe),'',''],[t.fecha,'Traspaso','Traspaso',t.concepto||'Traspaso',t.desde==='banco'?'Del banco':'De la caja',t.hacia==='banco'?'Banco':'Caja',n(t.importe),'','']]),
+    ...S.contMov.filter(m=>!m.anulado).map(m=>[m.fecha,m.tipo==='gasto'?'Gasto':'Ingreso',m.categoria,m.concepto,m.proveedor,m.cuenta==='caja'?'Caja':'Banco',n(m.tipo==='gasto'?-m.importe:m.importe),m.fotos?'Sí':'No',m.notas])].sort((x,y)=>x[0]<y[0]?-1:1);
+  const csv='﻿'+[['Fecha','Tipo','Categoría','Concepto','Quién','Cuenta','Importe','Factura','Notas'],...filas].map(f=>f.map(c).join(';')).join('\r\n');
   const l=document.createElement('a'); l.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); l.download=`contabilidad_club_${a}.csv`; document.body.appendChild(l); l.click(); setTimeout(()=>{ URL.revokeObjectURL(l.href); l.remove(); },500);
 }
 
