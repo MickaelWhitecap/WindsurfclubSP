@@ -34,7 +34,7 @@ header{position:sticky;top:0;z-index:5;color:#fff;background:linear-gradient(120
 .logo h1{font-size:20px;font-weight:800;margin:0;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .logo small{display:block;font-size:12px;opacity:.85;font-weight:600}
 .who{font-size:13px;opacity:.9;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-nav{display:flex;gap:6px;overflow-x:auto;max-width:1140px;margin:0 auto;padding:6px 16px 12px;scrollbar-width:none}
+nav{display:flex;flex-wrap:wrap;gap:6px;max-width:1140px;margin:0 auto;padding:6px 16px 12px}
 nav button{flex:none;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:0;padding:8px 14px;border-radius:999px;color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
 .enlaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.enlaces a{display:flex;gap:14px;align-items:center;padding:16px;border:2px solid var(--c,var(--sea));border-radius:16px;text-decoration:none;color:var(--ink);background:var(--cl,var(--sky));box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s}.enlaces a:hover,.enlaces a:active{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,42,58,.14)}.enlaces .ico-e{font-size:28px;width:52px;height:52px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--card);border:2px solid var(--c,var(--sea))}.enlaces b{font-size:18px;color:var(--c,var(--sea))}.enlaces .flecha{margin-left:auto;font-size:26px;font-weight:700;color:var(--c,var(--sea))}.enlaces .e-viento{--c:var(--sea);--cl:var(--wind-l)}.enlaces .e-marea{--c:var(--mint);--cl:var(--mint-l)}.enlaces .e-sol{--c:var(--warn);--cl:var(--sun-l)}
 @media (max-width:520px){ .largo{display:none} }
@@ -45,6 +45,7 @@ nav .cuenta{background:var(--coral,#ff6b5b);color:#fff;border-radius:999px;font-
 nav button.ver{background:transparent;border:1.5px dashed rgba(255,255,255,.6);padding:6.5px 12.5px;font-weight:600}
 nav button.ver:hover{background:rgba(255,255,255,.12)}
 nav button:hover{background:rgba(255,255,255,.24)}nav button.on{background:#fff;color:var(--sea-d)}nav button.ver.on{background:#fff;border-style:solid;border-color:#fff}
+@media (max-width:600px){header{position:relative}nav{gap:5px;padding:4px 12px 10px}nav button{font-size:13.5px;padding:6px 11px;gap:4px}nav button.ver{padding:4.5px 9.5px}nav .navsep{flex-basis:100%;border-left:0;margin:2px 0 0;padding:2px 2px}nav .navsep br{display:none}}
 main{max-width:1140px;margin:0 auto;padding:20px 16px 40px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
 h2{font-size:21px;font-weight:800;margin:0 0 12px}h3{font-size:16px;font-weight:800;margin:20px 0 8px;color:var(--sea-d)}
@@ -440,7 +441,7 @@ async function cargar(){
 function usar(v){ try{ sb.rpc('registrar_uso',{p_vista:v}).then(()=>{},()=>{}); }catch(e){} }
 // Pestañas del socio: primero en las que puede hacer algo, luego las de solo consulta
 const tabsSocio = (nN,nT) => [['yo','Mi ficha'],['comunicados',etiquetaCom()],['sugerencias','Sugerencias'],...(nT?[['tablon',nT>1?'Tablón de mis naves':'Tablón de mi nave']]:[]),...(nN?[['minave',nN>1?'Mis naves':'Mi nave']]:[]),['|','Solo consulta'],['mapa','Naves'],['esperasoc','Lista de espera'],['junta','Junta directiva']];
-const navHTML = tabs => { let ver=false; return tabs.map(([k,t])=>{ if(k==='|'){ ver=true; return `<span class="navsep" title="Estas pestañas son solo para mirar"><span class="ojo">👁</span><span>${t.replace(' ','<br>')}</span></span>`; } return `<button data-k="${k}"${ver?' class="ver"':''}>${t}</button>`; }).join(''); };
+const navHTML = tabs => { let ver=false; return tabs.map(([k,t])=>{ if(k==='|'){ ver=true; return `<span class="navsep" title="Estas pestañas son solo para mirar"><span class="ojo">👁</span><span>${t.replace(' ',' <br>')}</span></span>`; } return `<button data-k="${k}"${ver?' class="ver"':''}>${t}</button>`; }).join(''); };
 function ir(k){
   if(S.previaSocio){ irPrevia(k); return; }
   usar(k);
