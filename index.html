@@ -202,6 +202,7 @@ const esc = v => (v ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<'
 const eur = n => (Number(n)||0).toLocaleString('es-ES',{minimumFractionDigits:0,maximumFractionDigits:2})+' €';
 const fecha = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-ES') : '';
 const hoy = () => new Date().toISOString().slice(0,10);
+const edad = d => { if(!d) return ''; const n=new Date(d+'T00:00:00'), h=new Date(); if(isNaN(n)||n>h) return ''; let e=h.getFullYear()-n.getFullYear(); if(h.getMonth()<n.getMonth()||(h.getMonth()===n.getMonth()&&h.getDate()<n.getDate())) e--; return e+(e===1?' año':' años'); };
 const ANIO = new Date().getFullYear();
 let S = {}, TABS = []; // datos en memoria
 
@@ -559,7 +560,7 @@ function vSocios(){
   document.querySelectorAll('th[data-o]').forEach(th=>th.onclick=()=>{orden=th.dataset.o;vSocios();});
 }
 
-const CAMPOS=[['numero','Nº socio','number'],['nombre','Nombre'],['dni','DNI / NIE'],['telefono','Teléfono'],['email','Email','email'],['talla_licra','Talla licra'],['licencia_federativa','Licencia federativa'],['direccion','Dirección'],['fecha_alta','Fecha de alta','date']];
+const CAMPOS=[['numero','Nº socio','number'],['nombre','Nombre'],['dni','DNI / NIE'],['telefono','Teléfono'],['email','Email','email'],['talla_licra','Talla licra'],['licencia_federativa','Licencia federativa'],['direccion','Dirección'],['fecha_nacimiento','Fecha de nacimiento','date'],['fecha_alta','Fecha de alta','date']];
 function libresNumeros(){ const usados=new Set(activos().map(s=>s.numero)); return Array.from({length:175},(_,i)=>i+1).filter(n=>!usados.has(n)); }
 function ficha(id){
   const s = id ? S.socio[id] : {estado:'activo',tipo:'numerario',numero:libresNumeros()[0],fecha_alta:hoy()};
@@ -568,7 +569,7 @@ function ficha(id){
   $('#dlgT').textContent = id ? `Socio ${s.numero ?? ''} · ${s.nombre}` : 'Nuevo socio';
   $('#dlgB').innerHTML = `
     ${id?`<div class="pname" style="margin-bottom:8px">${avatar(s,64)}<div>${botonesFoto(s)}</div></div>`:''}
-    <div class="row">${CAMPOS.map(([k,l,t])=>`<div><label>${l}</label><input id="f_${k}" type="${t||'text'}" value="${esc(s[k])}"></div>`).join('')}</div>
+    <div class="row">${CAMPOS.map(([k,l,t])=>`<div><label>${l}</label><input id="f_${k}" type="${t||'text'}" value="${esc(s[k])}"${k==='fecha_nacimiento'?` max="${hoy()}" oninput="$('#f_edad').value=edad(this.value)"`:''}></div>${k==='fecha_nacimiento'?`<div><label>Edad</label><input id="f_edad" value="${edad(s.fecha_nacimiento)}" readonly tabindex="-1" style="background:var(--bg,#f4f6f8)" placeholder="Sale sola con la fecha"></div>`:''}`).join('')}</div>
     <label>Notas</label><textarea id="f_notas" rows="2">${esc(s.notas)}</textarea>
     <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarSocio(${id})">Guardar</button>
       ${id&&s.estado==='activo'?`<button class="btn sun" onclick="verComoSocio(${id})">Ver como lo ve el socio</button><button class="btn sec" onclick="darBaja(${id})">Dar de baja</button>`:''}</div>
@@ -1700,7 +1701,7 @@ function vYo(prev){
   const otros=prev?activos().filter(o=>o.id!==yo.id&&o.email&&yo.email&&o.email.toLowerCase()===yo.email.toLowerCase()):mios.slice(1);
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email. Arriba tienes sus mismas pestañas. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,64)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
     ${botonesFoto(yo,!!prev)}
-    <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div></div>
+    <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div><div><label>Fecha de nacimiento</label>${yo.fecha_nacimiento?fecha(yo.fecha_nacimiento):'<span class="muted">sin poner</span>'}</div><div><label>Edad</label>${edad(yo.fecha_nacimiento)||'<span class="muted">—</span>'}</div></div>
     <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>${avisoCom()}${avisoVot()}${avisoTablon()}${enlacesTiempo()}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}
     <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre,telefono:S.socio[e.socio_id]?.telefono};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>${e.telefono?` · <a href="tel:${esc(e.telefono)}">${esc(e.telefono)}</a>`:''}`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
     <div class="card"><h2>Mis cuotas</h2><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
