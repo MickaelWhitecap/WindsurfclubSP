@@ -659,7 +659,20 @@ function vNaves(){
       ${!enc?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>${es?`<button class="btn sun small" onclick="verComoEncargado(${n.id})">Ver como el encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button>`:`<button class="btn sec small" onclick="proponerCapacidad(${n.id})">Capacidad</button><button class="btn sec small" onclick="proponerHueco(${n.id})">Añadir hueco</button>`}</div>
       ${!enc?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
       <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:`borrarHueco(${h.id})`):`huecoEnc(${h.id})`}" ${enc||!s?'style="cursor:pointer"':''} ${!enc&&!s?'title="Pulsa para borrar este hueco"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div>${!enc&&hs.some(h=>!h.socio_id)?'<p class="muted" style="font-size:13px;margin:10px 0 0">Para borrar un hueco libre, púlsalo.</p>':''}</div>`;
-  }).join('') + (enc?`<div class="card"><h2>Mis propuestas</h2>${props.length?props.map(c=>filaCambio(c,{anular:!S.previaEnc})).join(''):'<p class="muted">Todavía no has propuesto ningún cambio.</p>'}</div>`:'');
+  }).join('') + (enc?`<div class="card"><h2>Mis propuestas</h2>${props.length?props.map(c=>filaCambio(c,{anular:!S.previaEnc})).join(''):'<p class="muted">Todavía no has propuesto ningún cambio.</p>'}</div><div id="todasNaves"></div>`:'');
+  if(enc) todasNavesDesplegables(enP?enP.socio_id:null);
+}
+// Todas las naves, una debajo de otra, que se despliegan al pulsar (solo números de socio)
+async function todasNavesDesplegables(socioPrevia){
+  const vista=S.vista, caja=()=>document.getElementById('todasNaves');
+  const {data,error}=await sb.rpc('mapa_naves_numeros'); if(error||!caja()||S.vista!==vista) return;
+  const yo=S.previaSocio||socioPrevia;
+  if(S.previaEnc){ (data||[]).forEach(r=>{ const h=S.huecos.find(x=>x.nave_id===r.nave_id&&x.codigo===r.codigo); r.ocupado=!!(h&&h.socio_id); r.mio=!!h&&!!yo&&h.socio_id===yo; r.numero=h&&h.socio_id?S.socio[h.socio_id]?.numero:null; }); }
+  const naves=[]; (data||[]).forEach(r=>{ let n=naves.find(x=>x.id===r.nave_id); if(!n){ n={id:r.nave_id,nombre:r.nave,tipo:r.tipo,capacidad:r.capacidad,h:[]}; naves.push(n);} n.h.push(r); });
+  const ord=c=>{const m=/^\d+$/.test(c); return m?[0,Number(c),'']:[1,0,c];};
+  naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
+  naves.sort((a,b)=>a.id-b.id);
+  caja().innerHTML=`<div class="card"><h2 style="margin-bottom:6px">Todas las naves</h2><p class="muted" style="margin:0 0 12px">Pulsa una nave para ver sus huecos y el número del socio que ocupa cada uno.</p><div class="avisos">${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<details class="nave ${tipoC(n)}"><summary><span class="dot"></span><b class="grow">${esc(n.nombre)}</b><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></summary><div style="padding:0 14px 14px"><div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?`<span class="muted">${h.numero!=null?'Socio '+h.numero:'ocupado'}</span>`:'libre'}</div>`).join('')}</div></div></details>`;}).join('')}</div></div>`;
 }
 const ESTADO_CAMBIO={pendiente:['Pendiente del presidente','warn'],aprobado:['Aprobado','ok'],rechazado:['Rechazado','bad'],anulado:['Retirado','']};
 function filaCambio(c,o={}){
