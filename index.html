@@ -662,6 +662,9 @@ function vNaves(){
   }).join('') + (enc?`<div class="card"><h2>Mis propuestas</h2>${props.length?props.map(c=>filaCambio(c,{anular:!S.previaEnc})).join(''):'<p class="muted">Todavía no has propuesto ningún cambio.</p>'}</div><div id="todasNaves"></div>`:'');
   if(enc) todasNavesDesplegables(enP?enP.socio_id:null);
 }
+function htmlNavesDesplegables(naves){
+  return `<div class="avisos">${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<details class="nave ${tipoC(n)}"><summary><span class="dot"></span><b class="grow">${esc(n.nombre)}</b><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></summary><div style="padding:0 14px 14px"><div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?`<span class="muted">${h.numero!=null?'Socio '+h.numero:'ocupado'}</span>`:'libre'}</div>`).join('')}</div></div></details>`;}).join('')}</div>`;
+}
 // Todas las naves, una debajo de otra, que se despliegan al pulsar (solo números de socio)
 async function todasNavesDesplegables(socioPrevia){
   const vista=S.vista, caja=()=>document.getElementById('todasNaves');
@@ -672,7 +675,7 @@ async function todasNavesDesplegables(socioPrevia){
   const ord=c=>{const m=/^\d+$/.test(c); return m?[0,Number(c),'']:[1,0,c];};
   naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
   naves.sort((a,b)=>a.id-b.id);
-  caja().innerHTML=`<div class="card"><h2 style="margin-bottom:6px">Todas las naves</h2><p class="muted" style="margin:0 0 12px">Pulsa una nave para ver sus huecos y el número del socio que ocupa cada uno.</p><div class="avisos">${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<details class="nave ${tipoC(n)}"><summary><span class="dot"></span><b class="grow">${esc(n.nombre)}</b><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></summary><div style="padding:0 14px 14px"><div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?`<span class="muted">${h.numero!=null?'Socio '+h.numero:'ocupado'}</span>`:'libre'}</div>`).join('')}</div></div></details>`;}).join('')}</div></div>`;
+  caja().innerHTML=`<div class="card"><h2 style="margin-bottom:6px">Todas las naves</h2><p class="muted" style="margin:0 0 12px">Pulsa una nave para ver sus huecos y el número del socio que ocupa cada uno.</p>${htmlNavesDesplegables(naves)}</div>`;
 }
 const ESTADO_CAMBIO={pendiente:['Pendiente del presidente','warn'],aprobado:['Aprobado','ok'],rechazado:['Rechazado','bad'],anulado:['Retirado','']};
 function filaCambio(c,o={}){
@@ -1504,8 +1507,7 @@ async function vMapa(){
   $('#main').innerHTML = `${S.previaSocio?bannerPrevia():''}<div class="card"><h2 style="margin-bottom:6px">Las naves del club</h2>
     <p class="muted" style="margin:0">Aquí ves cómo están repartidos los huecos y el número del socio que ocupa cada uno. ${mios.length?`Los tuyos están marcados en color: ${mios.map(r=>`<b style="color:var(--ink)">${esc(r.nave)}, hueco ${esc(r.codigo)}</b>`).join(', ')}.`:'Ahora mismo no tienes hueco.'} Si quieres un hueco libre, apúntate a la lista de espera escribiendo a la junta desde «Sugerencias».</p>
     <p style="margin:10px 0 0"><span class="nave" style="display:inline"><span class="dot"></span>Windsurf</span> &nbsp; <span class="nave foil" style="display:inline"><span class="dot"></span>Foil</span> &nbsp; <span class="nave kayak" style="display:inline"><span class="dot"></span>Kayak</span></p></div>
-  ${naves.map(n=>{const oc=n.h.filter(h=>h.ocupado).length, lib=n.h.length-oc; return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${lib?`${lib} libre${lib>1?'s':''}`:'completa'}</span></div>
-    <div class="grid-huecos">${n.h.map(h=>`<div class="hueco ${h.ocupado?'':'libre'}" style="cursor:default;${h.mio?'outline:3px solid var(--c);outline-offset:-3px;background:var(--cl)':''}"><b>${esc(h.codigo)}</b>${h.mio?'<span style="font-weight:800">Tu hueco</span>':h.ocupado?`<span class="muted">${h.numero!=null?'Socio '+h.numero:'ocupado'}</span>`:'libre'}</div>`).join('')}</div></div>`;}).join('')}`;
+  <div class="card"><p class="muted" style="margin:0 0 12px">Pulsa una nave para ver sus huecos.</p>${htmlNavesDesplegables(naves)}</div>`;
 }
 
 // ---------- Lista de espera para socios (solo para mirar) ----------
