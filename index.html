@@ -82,6 +82,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10p
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
 .btn{background:var(--sea);color:#fff;border:0;border-radius:12px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 2px 0 var(--sea-d)}
 .btn:hover{filter:brightness(1.07)}.btn.sec{background:var(--sky);color:var(--sea-d);box-shadow:none}.btn.sun{background:var(--sun);color:#3b2600;box-shadow:0 2px 0 #d48f00}
+#tic{position:fixed;inset:auto 0 24px 0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);border:0;padding:12px 20px;border-radius:14px;background:var(--ok);color:#fff;font-weight:800;font-size:17px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:9999;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;pointer-events:none}#tic.ve{opacity:1;transform:none}#tic small{display:block;font-weight:600;font-size:13px;opacity:.9}#tic:popover-open{display:block}:root[data-theme="dark"] #tic{color:#06251c}
 .btn.small{padding:6px 12px;font-size:14px;border-radius:10px}.btn.bad{background:var(--bad);box-shadow:0 2px 0 #a52f22}
 #dlg2{max-width:480px}#dlg2 .d2txt{white-space:pre-line;line-height:1.5}#dlg2 .d2bt{justify-content:flex-end;margin-top:6px}#dlg2 .err:empty{display:none}
 .priv{line-height:1.55}.priv h3{margin:16px 0 4px;font-size:16px}.priv p{margin:4px 0}
@@ -267,6 +268,18 @@ function ventana1({titulo='Aviso', texto='', html='', campos=[], ok='Aceptar', c
   });
 }
 const aviso = (texto, titulo='Aviso') => ventana({titulo, texto, cancelar:null});
+// Tic verde: sale solo cuando el guardado ha ido bien (si falla, q() ya muestra el aviso y no se llega aquí)
+let ticT=null;
+function hecho(txt='Guardado', nota=''){
+  let t=$('#tic'); if(!t){ t=document.createElement('div'); t.id='tic'; t.setAttribute('role','status'); if('popover' in t) t.popover='manual'; document.body.appendChild(t); }
+  t.innerHTML=`✓ ${esc(txt)}${nota?`<small>${esc(nota)}</small>`:''}`;
+  if('popover' in t){ try{ if(t.matches(':popover-open')) t.hidePopover(); t.showPopover(); }catch(e){} }
+  else { const d=document.querySelector('dialog[open]'); (d||document.body).appendChild(t); }
+  t.classList.remove('ve'); void t.offsetWidth; t.classList.add('ve');
+  clearTimeout(ticT); ticT=setTimeout(()=>{ t.classList.remove('ve'); setTimeout(()=>{ try{ if('popover' in t && t.matches(':popover-open')) t.hidePopover(); }catch(e){} },250); },2600);
+}
+// En «Ver como un socio»: explica, y después enseña el tic tal como le sale al socio
+const previa = (texto, txt='Guardado') => aviso(texto,'Vista previa').then(()=>hecho(txt,'Así le sale al socio. Es la vista previa: no se ha guardado nada.'));
 const confirmar = (texto, {titulo='¿Seguro?', ok='Sí, continuar', cancelar='Cancelar', peligro=false}={}) => ventana({titulo, texto, ok, cancelar, peligro});
 // Un solo dato: devuelve el valor o null si se cancela
 async function pedir(titulo, campo, opts={}){ const r=await ventana({titulo, campos:[campo], ok:'Guardar', ...opts}); return r?r[0]:null; }
@@ -475,7 +488,7 @@ async function cargarFotos(){
   try{ localStorage.setItem('fotos',JSON.stringify(cache)); }catch(e){}
 }
 function botonesFoto(s,previa){
-  const tiene=!!S.fotoUrl[s.id], av="aviso('Esto es la vista previa. El socio pulsa aquí para poner su foto. Para ponerla tú, abre su ficha en la pestaña Socios.','Vista previa')";
+  const tiene=!!S.fotoUrl[s.id], av="previa('Esto es la vista previa. El socio pulsa aquí para poner su foto. Para ponerla tú, abre su ficha en la pestaña Socios.','Foto guardada')";
   return `<div class="fotobt"><button class="btn small" onclick="${previa?av:`elegirFoto(${s.id})`}">📷 ${tiene?'Cambiar la foto':'Poner una foto'}</button>${tiene?`<button class="btn sec small" onclick="${previa?av:`quitarFoto(${s.id})`}">Quitar la foto</button>`:''}</div>`;
 }
 function elegirFoto(id){
@@ -485,7 +498,7 @@ function elegirFoto(id){
     const {error}=await sb.storage.from('fotos').upload(`${id}.jpg`,blob,{upsert:true,contentType:'image/jpeg',cacheControl:'604800'});
     if(error){ aviso(errorES(error.message),'No se ha podido subir la foto'); return; }
     await q(sb.rpc('marcar_foto',{p_socio:id,p_tiene:true}));
-    await cargar(); refrescarVista(id);
+    await cargar(); refrescarVista(id); hecho('Foto guardada');
   };
   inp.click();
 }
@@ -502,7 +515,7 @@ async function quitarFoto(id){
   if(!await confirmar('¿Quitar la foto? Volverán a verse las iniciales.',{ok:'Quitar la foto'})) return;
   await sb.storage.from('fotos').remove([`${id}.jpg`]);
   await q(sb.rpc('marcar_foto',{p_socio:id,p_tiene:false}));
-  await cargar(); refrescarVista(id);
+  await cargar(); refrescarVista(id); hecho('Foto quitada');
 }
 function refrescarVista(id){ if(dlg.open && $('#dlgT').textContent.startsWith('Socio')) ficha(id); else if(S.vista==='yo') vYo(); else ir(S.vista); }
 const avatar = (s,t) => S.fotoUrl[s.id] ? `<img class="av" alt="" loading="lazy" src="${esc(S.fotoUrl[s.id])}"${t?` style="width:${t}px;height:${t}px"`:''}>` : `<span class="av" style="background:${PALETA[(s.numero||s.id||0)%PALETA.length]}${t?`;width:${t}px;height:${t}px;font-size:${Math.round(t*.36)}px`:''}">${esc(ini(s.nombre))}</span>`;
@@ -596,7 +609,7 @@ async function guardarSocio(id){
     await q(sb.from('cuotas').insert({socio_id:n.id,anio:t.anio,tipo:'entrada',importe:t.cuota_entrada,estado:'pendiente'}));
     await log(n.id,'alta','Alta como socio numerario con cuota de entrada de '+eur(t.cuota_entrada)); id=n.id;
   }
-  await cargar(); ficha(id); refrescar();
+  await cargar(); ficha(id); refrescar(); hecho();
 }
 async function darBaja(id){
   if(!await confirmar('Sus huecos quedarán libres y su número podrá reasignarse.',{titulo:'¿Dar de baja a este socio?',ok:'Dar de baja',peligro:true})) return;
@@ -607,7 +620,7 @@ async function darBaja(id){
 }
 async function asignar(id){ const h=Number($('#nuevoHueco').value); if(!h) return; await q(sb.from('huecos').update({socio_id:id}).eq('id',h)); const x=S.huecos.find(z=>z.id===h); await log(id,'hueco asignado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
 async function liberar(h,id){ if(!await confirmar('El hueco quedará libre para asignarlo a otro socio.',{titulo:'¿Liberar este hueco?',ok:'Liberar'})) return; const x=S.huecos.find(z=>z.id===h); await q(sb.from('huecos').update({socio_id:null,cesion:false}).eq('id',h)); await log(id,'hueco liberado',`${S.nave[x.nave_id].nombre} ${x.codigo}`); await cargar(); ficha(id); refrescar(); }
-async function nota(id){ const t=$('#nuevaNota').value.trim(); if(!t) return; await log(id,'nota',t); await cargar(); ficha(id); }
+async function nota(id){ const t=$('#nuevaNota').value.trim(); if(!t) return; await log(id,'nota',t); await cargar(); ficha(id); hecho('Nota guardada'); }
 async function log(socio_id,evento,detalle){ await q(sb.from('historial').insert({socio_id,evento,detalle})); }
 async function ajustarCuota(cuotaId){
   const c=S.cuotas.find(x=>x.id===cuotaId);
@@ -618,7 +631,7 @@ async function ajustarCuota(cuotaId){
   const exenta=v===Number(c.importe);
   await q(sb.from('cuotas').update({descuento:v, motivo_exencion:m||null, estado:exenta?'exenta':'pendiente'}).eq('id',cuotaId));
   await log(c.socio_id, exenta?'cuota exenta':'descuento', `${c.tipo} ${c.anio}: ${eur(v)}${m?' · '+m:''}`);
-  await cargar(); ficha(c.socio_id); refrescar();
+  await cargar(); ficha(c.socio_id); refrescar(); hecho();
 }
 async function pagoManual(cuotaId){
   const c=S.cuotas.find(x=>x.id===cuotaId);
@@ -626,7 +639,7 @@ async function pagoManual(cuotaId){
   await q(sb.from('pagos').insert({cuota_id:c.id,socio_id:c.socio_id,fecha:hoy(),importe:c.importe-c.descuento,metodo:met.trim().toLowerCase()}));
   await q(sb.from('cuotas').update({estado:'pagada'}).eq('id',c.id));
   await log(c.socio_id,'pago anotado',`${c.tipo} ${c.anio}: ${eur(c.importe-c.descuento)} por ${met}`);
-  await cargar(); ficha(c.socio_id); refrescar();
+  await cargar(); ficha(c.socio_id); refrescar(); hecho('Pago anotado');
 }
 function refrescar(){ if(S.vista) ir(S.vista); }
 
@@ -700,7 +713,7 @@ async function guardarEncargado(naveId){
   const socio_id=Number($('#enS').value), notas=$('#enN').value.trim()||null;
   await q(sb.from('encargados').upsert({nave_id:naveId,socio_id,desde:hoy(),notas},{onConflict:'nave_id'}));
   await log(socio_id,'encargado de nave',`${S.nave[naveId].nombre}`);
-  dlg.close(); await cargar(); vNaves();
+  dlg.close(); await cargar(); vNaves(); hecho();
 }
 async function huecoEnc(hid){
   const h=S.huecos.find(x=>x.id===hid), n=S.nave[h.nave_id], s=h.socio_id&&S.socio[h.socio_id];
@@ -721,7 +734,7 @@ async function huecoEnc(hid){
 }
 function asignarEnc(hid){ const id=Number($('#asS').value); if(!id) return; const h=S.huecos.find(x=>x.id===hid), s=S.socio[id]||{nombre:$('#asS').selectedOptions[0].text}; proponer({p_tipo:'asignar',p_nave:h.nave_id,p_hueco:hid,p_socio:id},`Asignar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre} a ${s.nombre}`); }
 function liberarEnc(hid){ const h=S.huecos.find(x=>x.id===hid), s=S.socio[h.socio_id]; proponer({p_tipo:'liberar',p_nave:h.nave_id,p_hueco:hid},`Liberar el hueco ${h.codigo} de ${S.nave[h.nave_id].nombre}${s?', que ocupa '+s.nombre:''}`); }
-async function editarNave(id){ const n=S.nave[id]; const c=await pedir(`Capacidad de ${n.nombre}`,{label:'Número de huecos',tipo:'number',valor:n.capacidad,obligatorio:true,min:1,max:500}); if(c===null) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); }
+async function editarNave(id){ const n=S.nave[id]; const c=await pedir(`Capacidad de ${n.nombre}`,{label:'Número de huecos',tipo:'number',valor:n.capacidad,obligatorio:true,min:1,max:500}); if(c===null) return; await q(sb.from('naves').update({capacidad:Number(c)}).eq('id',id)); await cargar(); vNaves(); hecho(); }
 async function borrarHueco(id){
   const h=S.huecos.find(x=>x.id===id); if(!h||h.socio_id) return;
   const n=S.nave[h.nave_id];
@@ -730,7 +743,7 @@ async function borrarHueco(id){
   if(error){ aviso(/foreign key|violates/i.test(error.message)?'Este hueco tiene propuestas de un encargado guardadas y no se puede borrar.':errorES(error.message),'No se ha podido borrar'); return; }
   await cargar(); vNaves();
 }
-async function nuevoHueco(id){ const c=await pedir(`Nuevo hueco en ${S.nave[id].nombre}`,{label:'Código del hueco (número o letra)',obligatorio:true},{ok:'Añadir'}); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c})); await cargar(); vNaves(); }
+async function nuevoHueco(id){ const c=await pedir(`Nuevo hueco en ${S.nave[id].nombre}`,{label:'Código del hueco (número o letra)',obligatorio:true},{ok:'Añadir'}); if(!c) return; await q(sb.from('huecos').insert({nave_id:id,codigo:c})); await cargar(); vNaves(); hecho('Hueco añadido'); }
 
 // ---------- Cuotas ----------
 let anioC=null;
@@ -751,8 +764,8 @@ function vCuotas(){
   $('#selA').onchange=e=>{anioC=Number(e.target.value);vCuotas();};
 }
 async function generar(a,camp){ if(!await confirmar(`Se creará la cuota anual de ${a} para cada socio activo que aún no la tenga.`,{titulo:`¿Generar las cuotas ${a}?`,ok:'Generar cuotas'})) return; const n=await q(sb.rpc('generar_cuotas',{p_anio:a})); aviso(`${n} cuotas creadas.`,'Cuotas generadas'); await cargar(); camp?vCampana():vCuotas(); }
-async function editarTarifa(a){ const t=S.tarifas.find(x=>x.anio===a); const r=await ventana({titulo:`Tarifa ${a}`,ok:'Guardar',campos:[{label:'Precio por hueco (€)',tipo:'number',valor:t.precio_hueco,obligatorio:true,min:0},{label:'Cuota sin hueco / patio (€)',tipo:'number',valor:t.cuota_patio,obligatorio:true,min:0},{label:'Cuota de entrada (€)',tipo:'number',valor:t.cuota_entrada,obligatorio:true,min:0}]}); if(!r) return; const [p,pa,e]=r; await q(sb.from('tarifas').update({precio_hueco:p,cuota_patio:pa,cuota_entrada:e}).eq('anio',a)); await cargar(); vCuotas(); }
-async function nuevaTarifa(){ const a=await pedir('Nueva tarifa',{label:'Año',tipo:'number',valor:Math.max(...S.tarifas.map(t=>t.anio))+1,obligatorio:true,min:2020,max:2100},{texto:'Copia los importes de la última tarifa. Después puedes cambiarlos.',ok:'Crear',validar:([x])=>S.tarifas.some(t=>t.anio===x)?'Ya hay una tarifa para ese año.':''}); if(!a) return; const u=S.tarifas.at(-1); await q(sb.from('tarifas').insert({anio:a,precio_hueco:u.precio_hueco,cuota_patio:u.cuota_patio,cuota_entrada:u.cuota_entrada})); anioC=a; await cargar(); vCuotas(); }
+async function editarTarifa(a){ const t=S.tarifas.find(x=>x.anio===a); const r=await ventana({titulo:`Tarifa ${a}`,ok:'Guardar',campos:[{label:'Precio por hueco (€)',tipo:'number',valor:t.precio_hueco,obligatorio:true,min:0},{label:'Cuota sin hueco / patio (€)',tipo:'number',valor:t.cuota_patio,obligatorio:true,min:0},{label:'Cuota de entrada (€)',tipo:'number',valor:t.cuota_entrada,obligatorio:true,min:0}]}); if(!r) return; const [p,pa,e]=r; await q(sb.from('tarifas').update({precio_hueco:p,cuota_patio:pa,cuota_entrada:e}).eq('anio',a)); await cargar(); vCuotas(); hecho(); }
+async function nuevaTarifa(){ const a=await pedir('Nueva tarifa',{label:'Año',tipo:'number',valor:Math.max(...S.tarifas.map(t=>t.anio))+1,obligatorio:true,min:2020,max:2100},{texto:'Copia los importes de la última tarifa. Después puedes cambiarlos.',ok:'Crear',validar:([x])=>S.tarifas.some(t=>t.anio===x)?'Ya hay una tarifa para ese año.':''}); if(!a) return; const u=S.tarifas.at(-1); await q(sb.from('tarifas').insert({anio:a,precio_hueco:u.precio_hueco,cuota_patio:u.cuota_patio,cuota_entrada:u.cuota_entrada})); anioC=a; await cargar(); vCuotas(); hecho('Tarifa creada'); }
 
 // ---------- Campaña de cuotas ----------
 const fLarga = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}) : '';
@@ -901,7 +914,7 @@ async function guardarMensajes(anio,tipo,ids,canal){
   for(let i=0;i<filas.length;i+=100) await q(sb.from('mensajes').upsert(filas.slice(i,i+100),{onConflict:'socio_id,anio,tipo',ignoreDuplicates:true}));
 }
 async function registrarWA(anio,tipo,id){ await guardarMensajes(anio,tipo,[id],'whatsapp'); }
-async function marcarAviso(anio,tipo,n){ const a=S.campanas.find(c=>c.anio===anio); await guardarMensajes(anio,tipo,destinatarios(a,tipo).socios.map(s=>s.id),'email'); await q(sb.from('avisos').insert({anio,tipo,destinatarios:n})); await log(null,'aviso enviado',`${AVISOS[tipo].t} ${anio}: ${n} emails`); dlg.close(); await cargar(); vCampana(); }
+async function marcarAviso(anio,tipo,n){ const a=S.campanas.find(c=>c.anio===anio); await guardarMensajes(anio,tipo,destinatarios(a,tipo).socios.map(s=>s.id),'email'); await q(sb.from('avisos').insert({anio,tipo,destinatarios:n})); await log(null,'aviso enviado',`${AVISOS[tipo].t} ${anio}: ${n} emails`); dlg.close(); await cargar(); vCampana(); hecho('Guardado en la ficha de todos'); }
 async function generarCampana(a){ await generar(a,true); }
 async function editarCampana(anio){
   const a=S.campanas.find(c=>c.anio===anio);
@@ -913,7 +926,7 @@ async function editarCampana(anio){
     <div class="flex" style="margin-top:12px"><button class="btn" onclick="guardarCampana(${anio})">Guardar</button></div>`;
   if(!dlg.open) dlg.showModal();
 }
-async function guardarCampana(anio){ await q(sb.from('campanas').update({inicio:$('#cI').value,fin:$('#cF').value,prorroga_hasta:$('#cP').value||null,consecuencia:$('#cC').value.trim()||null,instrucciones_pago:$('#cIP').value.trim()||null,iban:$('#cIB').value.trim()||null}).eq('anio',anio)); dlg.close(); await cargar(); vCampana(); }
+async function guardarCampana(anio){ await q(sb.from('campanas').update({inicio:$('#cI').value,fin:$('#cF').value,prorroga_hasta:$('#cP').value||null,consecuencia:$('#cC').value.trim()||null,instrucciones_pago:$('#cIP').value.trim()||null,iban:$('#cIB').value.trim()||null}).eq('anio',anio)); dlg.close(); await cargar(); vCampana(); hecho(); }
 async function nuevaCampana(){ const a=Math.max(...S.tarifas.map(t=>t.anio)); await q(sb.from('campanas').insert({anio:a,inicio:`${a-1}-12-01`,fin:`${a}-01-15`})); await cargar(); vCampana(); }
 
 // ---------- Fotos adjuntas (sugerencias y tablón): hasta 4, reducidas a 1280 px en el navegador, almacén privado «adjuntos» ----------
@@ -1000,13 +1013,13 @@ function vSugerencias(){
   pintarAdj();
 }
 async function enviarSug(socio_id){
-  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el socio envía su sugerencia, solo a la junta o a todos los socios. No se ha enviado nada.','Vista previa'); return; }
+  if(S.previaSocio){ previa('Esto es la vista previa. Aquí el socio envía su sugerencia, solo a la junta o a todos los socios. No se ha enviado nada.','Sugerencia enviada'); return; }
   const texto=$('#sTxt').value.trim(); if(texto.length<3){ $('#sOk').textContent='Escribe tu sugerencia antes de enviarla.'; return; }
   const publica=document.querySelector('input[name=sVis]:checked')?.value==='publica', fotos=ADJ.sug||[];
   $('#sBtn').disabled=true; $('#sOk').textContent='Enviando…';
   let g; try{ [g]=await q(sb.from('sugerencias').insert({socio_id,tema:$('#sTema').value,texto,publica,fotos:fotos.length}).select('id')); }catch(e){ $('#sBtn').disabled=false; $('#sOk').textContent=''; return; }
   const ok = fotos.length ? await subirAdj('sug',g.id,fotos) : 0;
-  limpiarAdj('sug'); await cargar(); vSugerencias();
+  limpiarAdj('sug'); await cargar(); vSugerencias(); hecho('Sugerencia enviada');
   $('#sOk').textContent = ok<fotos.length ? `Enviada, pero ${fotos.length-ok===1?'una foto no se ha podido subir':'algunas fotos no se han podido subir'}.` : publica ? '¡Gracias! La junta la ha recibido y ya la ven los demás socios.' : '¡Gracias! La junta la ha recibido.';
 }
 async function estadoSug(id,estado){ await q(sb.from('sugerencias').update({estado}).eq('id',id)); await cargar(); vSugerencias(); }
@@ -1028,7 +1041,7 @@ async function guardarRespuesta(id){
   const x=S.sugerencias.find(z=>z.id===id);
   await q(sb.from('sugerencias').update({respuesta:r,estado:'respondida',respondida_en:new Date().toISOString()}).eq('id',id));
   await log(x.socio_id,'sugerencia respondida',r.slice(0,200));
-  dlg.close(); await cargar(); vSugerencias();
+  dlg.close(); await cargar(); vSugerencias(); hecho('Respuesta enviada');
 }
 
 // ---------- Tablón de cada nave: escriben el encargado (en la suya) y la junta; lo leen los socios con hueco en esa nave ----------
@@ -1070,13 +1083,13 @@ function vTablon(){
   pintarAdj();
 }
 async function publicarTablon(){
-  if(S.previaSocio){ aviso('Esto es la vista previa. Aquí el encargado publica su mensaje para los socios de la nave. No se ha publicado nada.','Vista previa'); return; }
+  if(S.previaSocio){ previa('Esto es la vista previa. Aquí el encargado publica su mensaje para los socios de la nave. No se ha publicado nada.','Publicado'); return; }
   const texto=$('#tTxt').value.trim(); if(texto.length<3){ $('#tOk').textContent='Escribe el mensaje antes de publicarlo.'; return; }
   const fotos=ADJ.tab||[], G=S.gestor;
   $('#tBtn').disabled=true; $('#tOk').textContent='Publicando…';
   let m; try{ [m]=await q(sb.from('tablon_nave').insert({nave_id:naveTab,autor_socio:G?null:(S.misIds||[])[0],texto,fotos:fotos.length}).select('id')); }catch(e){ $('#tBtn').disabled=false; $('#tOk').textContent=''; return; }
   const ok = fotos.length ? await subirAdj('tablon',m.id,fotos) : 0;
-  limpiarAdj('tab'); await cargar(); vTablon();
+  limpiarAdj('tab'); await cargar(); vTablon(); hecho('Publicado');
   $('#tOk').textContent = ok<fotos.length ? 'Publicado, pero alguna foto no se ha podido subir.' : '¡Publicado! Ya lo ven los socios de la nave.';
 }
 async function retirarTablon(id){
@@ -1173,7 +1186,7 @@ async function publicarComJunta(){
   let c; try{ [c]=await q(sb.from('comunicados_junta').insert({titulo,texto,fotos:fotos.length}).select('id')); }catch(e){ $('#cmB').disabled=false; $('#cmOk').textContent=''; return; }
   const ok = fotos.length ? await subirAdj('com',c.id,fotos) : 0;
   const {data,error}=await sb.functions.invoke('avisar-comunicado',{body:{id:c.id}});
-  limpiarAdj('com'); await cargar(); vComunicados();
+  limpiarAdj('com'); await cargar(); vComunicados(); hecho('Comunicado enviado');
   $('#cmOk').textContent = (ok<fotos.length?'Enviado, pero alguna foto no se ha podido subir. ':'¡Enviado! Ya lo ven todos los socios. ') + (error?'No se ha podido avisar en los móviles.':`Aviso enviado a ${data.ok} móvil${data.ok===1?'':'es'}.`);
 }
 async function retirarComJunta(id){
@@ -1210,7 +1223,7 @@ function tarjetaVot(v,G){
   else if(G) cuerpo=`<p class="muted" style="margin:10px 0 0;font-size:14px">🔒 El resultado se verá cuando se cierre. Hasta entonces nadie lo puede ver, tampoco la junta.</p>`;
   else if(abierta) cuerpo=ids.map(sid=>{ const s=S.socio[sid], lab=ids.length>1?`<p style="margin:12px 0 0"><b>Voto del socio ${s?.numero??''}</b></p>`:'';
       if(yaVoto(v,sid)) return lab+`<p class="tag ok" style="font-size:15px;padding:8px 14px;margin:10px 0 0">✅ Ya has votado. Tu voto es secreto.</p>`;
-      return lab+`<div class="vops">${v.opciones.map((o,i)=>`<label class="vop"><input type="radio" name="vo${v.id}_${sid}" value="${i+1}"> ${esc(o)}</label>`).join('')}</div><button class="btn sun" ${S.previaSocio?'disabled':`onclick="votarVot(${v.id},${sid})"`}>Enviar mi voto</button>`; }).join('')
+      return lab+`<div class="vops">${v.opciones.map((o,i)=>`<label class="vop"><input type="radio" name="vo${v.id}_${sid}" value="${i+1}"> ${esc(o)}</label>`).join('')}</div><button class="btn sun" ${S.previaSocio?`onclick="previa('Esto es la vista previa. Aquí el socio envía su voto secreto. No se ha votado nada.','Voto enviado')"`:`onclick="votarVot(${v.id},${sid})"`}>Enviar mi voto</button>`; }).join('')
     + `<p class="muted" style="font-size:13px;margin:10px 0 0">🔒 Voto secreto: nadie, tampoco la junta, puede ver qué has votado. Solo se sabe que ya has votado, para que nadie vote dos veces. El voto no se puede cambiar después.</p>`;
   const estado=v.retirada?'<span class="tag bad">Retirada</span>':abierta?'<span class="tag ok">Abierta</span>':cerrada?'<span class="tag">Cerrada</span>':'<span class="tag warn">Aún no abierta</span>';
   return `<div class="sug ${!G&&votPendientes().includes(v)?'com-nuevo':''}"><div class="flex"><b class="grow">${ico} ${esc(v.titulo)}</b><span class="tag">${tipo}</span>${estado}</div>
@@ -1246,7 +1259,7 @@ async function votarVot(id,sid){
   if(!el){ aviso('Elige una respuesta antes de enviar tu voto.'); return; }
   if(!await confirmar(`Vas a votar «${v.opciones[Number(el.value)-1]}». Tu voto es secreto y no se puede cambiar después.`,{titulo:'¿Enviar tu voto?',ok:'Votar'})) return;
   try{ await q(sb.rpc('votar',{p_votacion:id,p_socio:sid,p_opcion:Number(el.value)})); }catch(e){ return; }
-  usar('votado'); await cargarVot(); vVotaciones(); ponerEtiquetaVot();
+  usar('votado'); await cargarVot(); vVotaciones(); ponerEtiquetaVot(); hecho('Voto enviado');
 }
 async function crearVot(){
   const tipo=$('#vtT').value, titulo=$('#vtQ').value.trim(), texto=$('#vtX').value.trim()||null, anunciar=$('#vtA').checked;
@@ -1267,7 +1280,7 @@ async function crearVot(){
       msg+=error?' Ha salido en «Comunicados», pero no se ha podido avisar en los móviles.':` Ha salido en «Comunicados» y se ha avisado a ${data.ok} móvil${data.ok===1?'':'es'}.`;
     }catch(e){ msg+=' No se ha podido anunciar en «Comunicados».'; }
   }
-  await cargar(); vVotaciones(); $('#vtOk').textContent=msg;
+  await cargar(); vVotaciones(); $('#vtOk').textContent=msg; hecho('Abierta');
 }
 async function cerrarVot(id){
   if(!await confirmar('Se cierra ahora y todos los socios verán el resultado. No se puede volver a abrir.',{titulo:'¿Cerrar ya?',ok:'Cerrar'})) return;
@@ -1449,7 +1462,7 @@ async function guardarPresup(a){
   const enviar=filas.filter(f=>f.importe>0||existe.has(f.tipo+'|'+f.categoria));
   $('#prB').disabled=true;
   try{ if(enviar.length) await q(sb.from('contab_presupuesto').upsert(enviar)); }catch(e){ $('#prB').disabled=false; return; }
-  dlg.close(); vContab();
+  dlg.close(); await vContab(); hecho();
 }
 
 // Cuentas anuales aprobadas por la asamblea (PDF)
@@ -1476,7 +1489,7 @@ async function guardarCuentas(){
   let c; try{ [c]=await q(sb.from('contab_cuentas_anuales').insert({anio,aprobadas_en:$('#caF').value||null,nota:$('#caN').value.trim()||null,archivo:'-'}).select('id')); }catch(e){ $('#caB').disabled=false; $('#caOk').textContent=''; return; }
   const ruta=`${anio}/${c.id}.pdf`, {error}=await sb.storage.from('cuentas').upload(ruta,f,{contentType:'application/pdf'});
   if(error){ await sb.from('contab_cuentas_anuales').update({retirado:true}).eq('id',c.id); $('#caB').disabled=false; $('#caOk').textContent=''; E('No se ha podido subir el PDF. Vuelve a probar.'); return; }
-  await q(sb.from('contab_cuentas_anuales').update({archivo:ruta}).eq('id',c.id)); dlg.close(); vContab();
+  await q(sb.from('contab_cuentas_anuales').update({archivo:ruta}).eq('id',c.id)); dlg.close(); await vContab(); hecho('PDF subido');
 }
 async function descargarCuentas(id){
   const c=(S.contCuentas||[]).find(x=>x.id===id), w=window.open('','_blank');
@@ -1566,12 +1579,12 @@ async function guardarMov(id,tipo){
   limpiarAdj('cont'); dlg.close();
   const a=Number(fecha.slice(0,4)); if(a!==anioCont()) contAnio=a;
   await vContab();
-  if(ok<fotos.length) aviso('El apunte está guardado, pero alguna foto no se ha podido subir.');
+  if(ok<fotos.length) aviso('El apunte está guardado, pero alguna foto no se ha podido subir.'); else hecho();
 }
 async function anularMov(id){
   const motivo=await pedir('¿Anular este apunte?',{label:'Motivo',ayuda:'Por ejemplo: apuntado dos veces',obligatorio:true},{ok:'Anular',peligro:true});
   if(!motivo) return;
-  await q(sb.from('contab_movimientos').update({anulado:true,motivo_anulacion:motivo}).eq('id',id)); dlg.close(); vContab();
+  await q(sb.from('contab_movimientos').update({anulado:true,motivo_anulacion:motivo}).eq('id',id)); dlg.close(); await vContab(); hecho('Apunte anulado');
 }
 async function saldoInicial(){
   const s=S.contSaldo, f=v=>v==null?'':String(v).replace('.',',');
@@ -1579,7 +1592,7 @@ async function saldoInicial(){
     campos:[{label:'🏦 En el banco (€)',valor:s?f(s.banco):'',ayuda:'Por ejemplo: 8.500',obligatorio:true},{label:'💰 En la caja de caudales (€)',valor:s?f(s.caja):'',ayuda:'Por ejemplo: 230',obligatorio:true}],
     validar:v=>v.some(x=>Number.isNaN(leerEuros(x))||leerEuros(x)==null)?'Escribe los dos importes, por ejemplo 8.500 y 230.':''});
   if(!v) return;
-  await q(sb.from('contab_arranque').upsert({id:1,banco:leerEuros(v[0]),caja:leerEuros(v[1])})); vContab();
+  await q(sb.from('contab_arranque').upsert({id:1,banco:leerEuros(v[0]),caja:leerEuros(v[1])})); await vContab(); hecho();
 }
 async function nuevoTraspaso(){
   const hoy=new Date().toISOString().slice(0,10), ini=CONT_DESDE;
@@ -1589,14 +1602,14 @@ async function nuevoTraspaso(){
     validar:v=>v[1]<ini?'La fecha tiene que ser del 27 de noviembre de 2026 en adelante.':(!(leerEuros(v[2])>0)?'Escribe el importe, por ejemplo 200.':'')});
   if(!v) return;
   await q(sb.from('contab_traspasos').insert({desde:v[0],hacia:v[0]==='banco'?'caja':'banco',fecha:v[1],importe:leerEuros(v[2]),concepto:v[3]||null}));
-  const a=Number(v[1].slice(0,4)); if(a!==anioCont()) contAnio=a; vContab();
+  const a=Number(v[1].slice(0,4)); if(a!==anioCont()) contAnio=a; await vContab(); hecho();
 }
 async function verTraspaso(id){
   const t=S.contTras.find(x=>x.id===id), txt=`${t.desde==='banco'?'Del banco a la caja':'De la caja al banco'}: ${eurC(t.importe)} el ${fLarga(t.fecha)}.${t.concepto?' '+t.concepto+'.':''} Apuntado por ${t.creado_por}.`;
   if(t.anulado){ aviso(`${txt}\n\nAnulado${t.motivo_anulacion?': '+t.motivo_anulacion:''}.`,'Traspaso'); return; }
   const r=await ventana({titulo:'Traspaso',texto:txt,campos:[{label:'Si está mal, escribe el motivo para anularlo',ayuda:'Por ejemplo: apuntado dos veces'}],ok:'Anular el traspaso',cancelar:'Cerrar',peligro:true,validar:v=>v[0]?'':'Escribe el motivo para anularlo.'});
   if(!r) return;
-  await q(sb.from('contab_traspasos').update({anulado:true,motivo_anulacion:r[0]}).eq('id',id)); vContab();
+  await q(sb.from('contab_traspasos').update({anulado:true,motivo_anulacion:r[0]}).eq('id',id)); await vContab(); hecho('Traspaso anulado');
 }
 function descargarCont(a){
   const n=x=>String(Number(x).toFixed(2)).replace('.',','), c=t=>`"${String(t??'').replace(/"/g,'""')}"`;
@@ -1632,7 +1645,7 @@ async function guardarJunta(id){
   if(id) await q(sb.from('junta_cargos').update(antes.socio_id!==r.socio_id?{...r,desde:r.socio_id?hoy():null}:r).eq('id',id)); else await q(sb.from('junta_cargos').insert({...r,desde:r.socio_id?hoy():null}));
   if(r.socio_id&&(!antes||antes.socio_id!==r.socio_id)) await log(r.socio_id,'Junta directiva',`Entra como ${r.cargo}`);
   if(antes&&antes.socio_id&&antes.socio_id!==r.socio_id) await log(antes.socio_id,'Junta directiva',`Deja el cargo de ${antes.cargo}`);
-  dlg.close(); await cargar(); vJunta();
+  dlg.close(); await cargar(); vJunta(); hecho();
 }
 async function quitarJunta(id){ const j=S.junta.find(x=>x.id===id); if(!await confirmar('El cargo desaparecerá de la lista de la Junta.',{titulo:`¿Eliminar el cargo «${j.cargo}»?`,ok:'Eliminar',peligro:true})) return; await q(sb.from('junta_cargos').delete().eq('id',id)); if(j.socio_id) await log(j.socio_id,'Junta directiva',`Deja el cargo de ${j.cargo}`); dlg.close(); await cargar(); vJunta(); }
 
