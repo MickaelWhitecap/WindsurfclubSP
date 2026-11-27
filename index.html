@@ -1410,15 +1410,94 @@ function htmlResumenCont(r,G){
   ${meses.length?`<div class="card"><h2>Mes a mes</h2><table><thead><tr><th>Mes</th><th style="text-align:right">Entra</th><th style="text-align:right">Sale</th></tr></thead><tbody>${meses.map(m=>`<tr><td>${MESES[m.mes]}</td><td style="text-align:right;white-space:nowrap">${m.ingresos?eurC(m.ingresos):'—'}</td><td style="text-align:right;white-space:nowrap">${m.gastos?eurC(m.gastos):'—'}</td></tr>`).join('')}</tbody></table>${r.ultimo?`<p class="muted" style="font-size:14px;margin-bottom:0">Último apunte: ${fLarga(r.ultimo)}.</p>`:''}</div>`:''}`;
 }
 
+// Presupuesto del año frente a lo real (lo ven la junta y los socios)
+const CAT_CUOTAS=['Cuotas anuales','Cuotas de entrada','Cuotas atrasadas'];
+function htmlPresup(a,r,G){
+  const P=(S.contPres||[]).filter(p=>p.anio===a&&+p.importe>0), real={};
+  ['ingresos','gastos'].forEach(k=>(r[k]||[]).forEach(x=>{ real[(k==='ingresos'?'ingreso':'gasto')+'|'+x.categoria]=+x.importe; }));
+  const boton=G?`<button class="btn small" onclick="editarPresup(${a})">✏️ ${P.length?'Cambiar el presupuesto':'Hacer el presupuesto'}</button>`:'';
+  if(!P.length) return G?`<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Presupuesto ${a}</h2>${boton}</div><p class="muted" style="margin-bottom:0">Todavía no hay presupuesto. Escribe cuánto pensáis gastar y cobrar en cada cosa; los socios verán si se cumple.</p></div>`:'';
+  const bloque=(tipo,tit)=>{
+    const filas=P.filter(p=>p.tipo===tipo).map(p=>({c:p.categoria,pr:+p.importe,re:real[tipo+'|'+p.categoria]||0}));
+    if(tipo==='gasto') Object.keys(real).filter(k=>k.startsWith('gasto|')&&!filas.some(f=>'gasto|'+f.c===k)).forEach(k=>filas.push({c:k.slice(6),pr:0,re:real[k]}));
+    if(!filas.length) return '';
+    const tp=filas.reduce((s,f)=>s+f.pr,0), tr=filas.reduce((s,f)=>s+f.re,0);
+    return `<h3 style="margin:14px 0 4px">${tit}</h3>${filas.map(f=>{ const pasa=tipo==='gasto'&&f.re>f.pr, pct=f.pr?Math.round(f.re/f.pr*100):null;
+      return `<div class="catf"><div class="flex"><span class="grow">${esc(f.c)}</span><b style="${pasa?'color:var(--bad)':''}">${eurC(f.re)} <span class="muted" style="font-weight:600">de ${f.pr?eurC(f.pr):'— (sin presupuesto)'}</span></b></div>
+        <div class="bar"><i style="--c:${pasa?'var(--bad)':tipo==='gasto'?'var(--coral)':'var(--mint)'};width:${f.pr?Math.max(2,Math.min(100,f.re/f.pr*100)):100}%"></i></div>${pct!=null?`<span class="muted" style="font-size:13px;font-weight:600">${pct} %${pasa?' · se ha pasado':''}</span>`:''}</div>`; }).join('')}
+      <div class="flex" style="border-top:1px solid var(--line);padding-top:8px;margin-top:6px"><b class="grow">Total</b><b style="${tipo==='gasto'&&tr>tp?'color:var(--bad)':''}">${eurC(tr)} de ${eurC(tp)}</b></div>`;
+  };
+  return `<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Presupuesto ${a} y lo real</h2>${boton}</div>
+    <p class="muted" style="margin-bottom:0">Lo que la junta pensaba gastar y cobrar este año, y lo que va de verdad.</p>${bloque('gasto','¿Cuánto se va gastando?')}${bloque('ingreso','¿Cuánto se va cobrando?')}</div>`;
+}
+function editarPresup(a){
+  const P=(S.contPres||[]).filter(p=>p.anio===a), val=(t,c)=>{ const p=P.find(x=>x.tipo===t&&x.categoria===c); return p&&+p.importe?String(+p.importe).replace('.',','):''; };
+  const cats=t=>[...new Set([...(t==='gasto'?CAT_GASTO:[...CAT_CUOTAS,...CAT_INGRESO]),...P.filter(p=>p.tipo===t).map(p=>p.categoria),...(S.contMov||[]).filter(m=>m.tipo===t).map(m=>m.categoria)])];
+  S.presForm=[...cats('gasto').map(c=>['gasto',c]),...cats('ingreso').map(c=>['ingreso',c])];
+  const campo=(x,i)=>`<div class="flex" style="margin:6px 0"><span class="grow">${esc(x[1])}</span><input id="pr${i}" inputmode="decimal" style="width:120px;text-align:right" value="${val(x[0],x[1])}" placeholder="0"></div>`;
+  $('#dlgT').textContent=`Presupuesto ${a}`;
+  $('#dlgB').innerHTML=`<p style="margin-top:0">Escribe cuánto pensáis gastar y cobrar en cada cosa durante ${a}, en euros. Deja vacío lo que no uséis.</p>
+    <h3>Gastos</h3>${S.presForm.map((x,i)=>x[0]==='gasto'?campo(x,i):'').join('')}
+    <h3 style="margin-top:16px">Ingresos</h3>${S.presForm.map((x,i)=>x[0]==='ingreso'?campo(x,i):'').join('')}
+    <p class="err" id="prE"></p><div class="flex" style="margin-top:12px"><button class="btn" id="prB" onclick="guardarPresup(${a})">Guardar el presupuesto</button></div>`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarPresup(a){
+  const filas=[]; for(let i=0;i<S.presForm.length;i++){ const v=leerEuros($('#pr'+i).value); if(Number.isNaN(v)||(v!=null&&v<0)){ $('#prE').textContent=`«${S.presForm[i][1]}» no es un importe válido.`; return; } filas.push({anio:a,tipo:S.presForm[i][0],categoria:S.presForm[i][1],importe:v||0}); }
+  const existe=new Set((S.contPres||[]).filter(p=>p.anio===a).map(p=>p.tipo+'|'+p.categoria));
+  const enviar=filas.filter(f=>f.importe>0||existe.has(f.tipo+'|'+f.categoria));
+  $('#prB').disabled=true;
+  try{ if(enviar.length) await q(sb.from('contab_presupuesto').upsert(enviar)); }catch(e){ $('#prB').disabled=false; return; }
+  dlg.close(); vContab();
+}
+
+// Cuentas anuales aprobadas por la asamblea (PDF)
+function htmlCuentasAnuales(G){
+  const l=(S.contCuentas||[]).filter(c=>G||!c.retirado).sort((x,y)=>y.anio-x.anio||y.id-x.id);
+  return `<div class="card"><div class="flex"><h2 class="grow" style="margin:0">Cuentas anuales aprobadas</h2>${G?'<button class="btn small" onclick="subirCuentas()">⬆️ Subir un PDF</button>':''}</div>
+    <p class="muted">Las cuentas de cada año, tal como las aprueba la asamblea, para descargar.</p>
+    ${l.length?`<div class="lista">${l.map(c=>`<div class="flex" style="padding:8px 10px;${c.retirado?'opacity:.55':''}"><span class="grow"><b>📄 Cuentas ${c.anio}</b><br><span class="muted" style="font-size:14px">${c.aprobadas_en?`Aprobadas en asamblea el ${fLarga(c.aprobadas_en)}`:'Subidas el '+fLargaTS(c.subido_en)}${c.nota?' · '+esc(c.nota):''}</span></span>${c.retirado?'<span class="tag bad">Retirado</span>':`<button class="btn small" onclick="descargarCuentas(${c.id})">Descargar</button>${G?`<button class="btn sec small" onclick="retirarCuentas(${c.id})">Retirar</button>`:''}`}</div>`).join('')}</div>`:'<p class="muted" style="margin-bottom:0">Todavía no hay cuentas aprobadas.</p>'}</div>`;
+}
+function subirCuentas(){
+  $('#dlgT').textContent='Subir las cuentas aprobadas';
+  $('#dlgB').innerHTML=`<label>Año de las cuentas</label><select id="caA">${aniosCont().map(a=>`<option>${a}</option>`).join('')}</select>
+    <label>Fecha de la asamblea que las aprobó</label><input id="caF" type="date">
+    <label>Nota <span class="muted">(opcional)</span></label><input id="caN" maxlength="200" placeholder="Por ejemplo: aprobadas por unanimidad">
+    <label>El PDF (máximo 10 MB)</label><input id="caP" type="file" accept="application/pdf">
+    <p class="err" id="caE"></p><div class="flex" style="margin-top:12px"><button class="btn" id="caB" onclick="guardarCuentas()">Subir</button><span id="caOk" class="muted"></span></div>
+    <p class="muted" style="font-size:14px">Lo podrán descargar todos los socios.</p>`;
+  if(!dlg.open) dlg.showModal();
+}
+async function guardarCuentas(){
+  const f=$('#caP').files[0], anio=Number($('#caA').value), E=t=>{ $('#caE').textContent=t; };
+  if(!f) return E('Elige el PDF.'); if(f.type!=='application/pdf'&&!/\.pdf$/i.test(f.name)) return E('Tiene que ser un PDF.'); if(f.size>10485760) return E('El PDF pesa más de 10 MB.');
+  $('#caB').disabled=true; $('#caOk').textContent='Subiendo…';
+  let c; try{ [c]=await q(sb.from('contab_cuentas_anuales').insert({anio,aprobadas_en:$('#caF').value||null,nota:$('#caN').value.trim()||null,archivo:'-'}).select('id')); }catch(e){ $('#caB').disabled=false; $('#caOk').textContent=''; return; }
+  const ruta=`${anio}/${c.id}.pdf`, {error}=await sb.storage.from('cuentas').upload(ruta,f,{contentType:'application/pdf'});
+  if(error){ await sb.from('contab_cuentas_anuales').update({retirado:true}).eq('id',c.id); $('#caB').disabled=false; $('#caOk').textContent=''; E('No se ha podido subir el PDF. Vuelve a probar.'); return; }
+  await q(sb.from('contab_cuentas_anuales').update({archivo:ruta}).eq('id',c.id)); dlg.close(); vContab();
+}
+async function descargarCuentas(id){
+  const c=(S.contCuentas||[]).find(x=>x.id===id), w=window.open('','_blank');
+  const {data,error}=await sb.storage.from('cuentas').createSignedUrl(c.archivo,600,{download:`Cuentas_club_${c.anio}.pdf`});
+  if(error||!data){ if(w) w.close(); aviso('No se ha podido abrir el PDF. Vuelve a probar más tarde.'); return; }
+  if(w) w.location=data.signedUrl; else location.href=data.signedUrl;
+}
+async function retirarCuentas(id){
+  if(!await confirmar('Los socios dejarán de verlas. No se borran.',{titulo:'¿Retirar estas cuentas?',ok:'Retirar'})) return;
+  await q(sb.from('contab_cuentas_anuales').update({retirado:true}).eq('id',id)); vContab();
+}
+const cargarPresCuentas = async () => { [S.contPres,S.contCuentas]=await Promise.all([q(sb.from('contab_presupuesto').select('*')),q(sb.from('contab_cuentas_anuales').select('*'))]); };
+
 // Socios (y «Ver como un socio»): solo el resumen
 async function vCuentas(){
   const a=anioCont(), cab=S.previaSocio?bannerPrevia():'';
   $('#main').innerHTML=cab+'<div class="card"><p class="muted">Cargando…</p></div>';
-  const {data,error}=await sb.rpc('contabilidad_resumen',{p_anio:a});
+  const [{data,error}]=await Promise.all([sb.rpc('contabilidad_resumen',{p_anio:a}),cargarPresCuentas().catch(()=>{})]);
   if(S.vista!=='cuentas') return;
   if(error){ $('#main').innerHTML=cab+'<div class="card"><p>No se han podido cargar las cuentas. Vuelve a probar más tarde.</p></div>'; return; }
   $('#main').innerHTML=cab+`<div class="card aviso-camp"><div class="flex"><h2 class="grow" style="margin:0">Cuentas del club ${a}</h2>${selAnioCont()}</div>
-    <p style="margin-bottom:0">Lo que entra y lo que sale del club, para que todos los socios lo veáis. Se actualiza solo cada vez que la junta apunta algo.</p>${notaInicioCont(a)}</div>`+htmlResumenCont(data,false);
+    <p style="margin-bottom:0">Lo que entra y lo que sale del club, para que todos los socios lo veáis. Se actualiza solo cada vez que la junta apunta algo.</p>${notaInicioCont(a)}</div>`+htmlResumenCont(data,false)+htmlPresup(a,data,false)+htmlCuentasAnuales(false);
 }
 
 // Junta: resumen + apuntar gastos e ingresos con la foto de la factura
@@ -1428,7 +1507,7 @@ async function vContab(){
   const [r,movs,sal,tras]=await Promise.all([sb.rpc('contabilidad_resumen',{p_anio:a}),
     q(sb.from('contab_movimientos').select('*').gte('fecha',`${a}-01-01`).lte('fecha',`${a}-12-31`).order('fecha',{ascending:false}).order('id',{ascending:false})),
     q(sb.from('contab_arranque').select('*')),
-    q(sb.from('contab_traspasos').select('*').gte('fecha',`${a}-01-01`).lte('fecha',`${a}-12-31`).order('fecha',{ascending:false}))]);
+    q(sb.from('contab_traspasos').select('*').gte('fecha',`${a}-01-01`).lte('fecha',`${a}-12-31`).order('fecha',{ascending:false})),cargarPresCuentas()]);
   if(S.vista!=='contab') return;
   S.contMov=movs; S.contSaldo=sal[0]||null; S.contTras=tras;
   const pagosA=S.pagos.filter(p=>ejercicioPago(p)===a), cobrado=pagosA.reduce((s,p)=>s+Number(p.importe),0);
@@ -1442,10 +1521,10 @@ async function vContab(){
   $('#main').innerHTML=`<div class="card aviso-camp"><div class="flex"><h2 class="grow" style="margin:0">Contabilidad ${a}</h2>${selAnioCont()}</div>
     <p>Los cobros de cuotas entran solos. Aquí apuntáis los <b>gastos</b> (con la foto de la factura) y los <b>otros ingresos</b>, como una subvención. Los socios ven el resumen en su pestaña «Cuentas del club», sin nombres.</p>
     <div class="flex"><button class="btn sun" onclick="editarMov(null,'gasto')">➖ Apuntar un gasto</button><button class="btn sec" onclick="editarMov(null,'ingreso')">➕ Apuntar otro ingreso</button><button class="btn sec" onclick="nuevoTraspaso()">🔁 Pasar dinero entre banco y caja</button>${a===CONT_INI?`<button class="btn sec" onclick="saldoInicial()">📅 Dinero al empezar</button>`:''}<button class="btn sec" onclick="descargarCont(${a})">⬇️ Descargar para Excel</button></div>${notaInicioCont(a)}</div>`
-    + htmlResumenCont(r.data||{ingresos:[],gastos:[],meses:[]},true)
+    + htmlResumenCont(r.data||{ingresos:[],gastos:[],meses:[]},true) + htmlPresup(a,r.data||{},true)
     + `<div class="card"><h2>Apuntes de ${a}</h2><div class="lista">
       <div class="flex" style="padding:8px 10px"><span class="muted" style="min-width:52px;font-size:14px">Solos</span><span class="grow"><b>Cobros de cuotas</b><br><span class="muted" style="font-size:14px">${pagosA.length} pagos, salen de la pestaña Cuotas${efe?` · ${eurC(efe)} en efectivo a la caja`:''}${pend?` · faltan ${eurC(pend)} por cobrar`:''}</span></span><b style="color:var(--ok)">+${eurC(cobrado)}</b></div>
-      ${[...movs.map(m=>({f:m.fecha,id:m.id,h:fila(m)})),...tras.map(t=>({f:t.fecha,id:t.id,h:filaT(t)}))].sort((x,y)=>x.f<y.f?1:x.f>y.f?-1:y.id-x.id).map(x=>x.h).join('')||'<p class="muted" style="padding:0 10px">Todavía no hay gastos ni otros ingresos apuntados.</p>'}</div></div>`;
+      ${[...movs.map(m=>({f:m.fecha,id:m.id,h:fila(m)})),...tras.map(t=>({f:t.fecha,id:t.id,h:filaT(t)}))].sort((x,y)=>x.f<y.f?1:x.f>y.f?-1:y.id-x.id).map(x=>x.h).join('')||'<p class="muted" style="padding:0 10px">Todavía no hay gastos ni otros ingresos apuntados.</p>'}</div></div>` + htmlCuentasAnuales(true);
 }
 
 function editarMov(id,tipo){
