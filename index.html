@@ -143,6 +143,7 @@ dialog .hd h2{margin:0;flex:1;font-size:19px}dialog .bd{padding:20px;max-height:
 .avisos details.nuevo{border-color:var(--sun)}.avisos details.nuevo summary{background:var(--sun-l)}
 .avisos summary{display:flex;gap:10px;align-items:center;padding:12px 14px;cursor:pointer;list-style:none}.avisos summary::-webkit-details-marker{display:none}
 .avisos summary:after{content:"▾";color:var(--muted)}.avisos details[open] summary:after{content:"▴"}
+.flecha,.avisos details.nave summary:after{content:"▼";display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--c);color:#fff;font-size:15px;line-height:1;flex:none;vertical-align:middle}.avisos details.nave[open] summary:after{content:"▲"}
 .avisos .txt{white-space:pre-wrap;padding:4px 14px 14px;font-size:15px}
 .pasos-pago{padding-left:22px;margin:6px 0 14px}.pasos-pago li{margin:8px 0}
 .copia{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}.copia code{font:700 15px/1.4 ui-monospace,Menlo,monospace;background:var(--card);border:1.5px dashed var(--sun);border-radius:10px;padding:6px 10px;word-break:break-all}
@@ -656,7 +657,7 @@ function vNaves(){
     const oc=hs.filter(h=>h.socio_id).length;
     const en=(S.encargados||[]).find(e=>e.nave_id===n.id), es=en&&S.socio[en.socio_id];
     const ab=(S.navAbiertas||(S.navAbiertas=new Set())).has(n.id);
-    return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow" style="cursor:pointer" onclick="plegarNave(${n.id},this)">${esc(n.nombre)} <span class="muted plg" style="font-size:16px">${ab?'▴':'▾'}</span></h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
+    return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow" style="cursor:pointer;white-space:nowrap" onclick="plegarNave(${n.id},this)">${esc(n.nombre)} <span class="flecha plg" style="margin-left:6px">${ab?'▲':'▼'}</span></h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
       ${!enc?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>${es?`<button class="btn sun small" onclick="verComoEncargado(${n.id})">Ver como el encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button>`:`<button class="btn sec small" onclick="proponerCapacidad(${n.id})">Capacidad</button><button class="btn sec small" onclick="proponerHueco(${n.id})">Añadir hueco</button>`}</div>
       ${!enc?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
       ${enc?`<p class="muted" style="font-size:13px;margin:0">Pulsa «${esc(n.nombre)}» para ver u ocultar los huecos.</p>`:''}<div class="plegable ${ab?'':'hidden'}" ${enc?'style="margin-top:12px"':''}><div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:`borrarHueco(${h.id})`):`huecoEnc(${h.id})`}" ${enc||!s?'style="cursor:pointer"':''} ${!enc&&!s?'title="Pulsa para borrar este hueco"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div>${!enc&&hs.some(h=>!h.socio_id)?'<p class="muted" style="font-size:13px;margin:10px 0 0">Para borrar un hueco libre, púlsalo.</p>':''}</div></div>`;
@@ -680,7 +681,7 @@ async function todasNavesDesplegables(socioPrevia){
 }
 function plegarNave(id,h2){
   const A=S.navAbiertas||(S.navAbiertas=new Set()), c=h2.closest('.nave').querySelector('.plegable'), ab=c.classList.toggle('hidden')===false;
-  ab?A.add(id):A.delete(id); h2.querySelector('.plg').textContent=ab?'▴':'▾';
+  ab?A.add(id):A.delete(id); h2.querySelector('.plg').textContent=ab?'▲':'▼';
 }
 const ESTADO_CAMBIO={pendiente:['Pendiente del presidente','warn'],aprobado:['Aprobado','ok'],rechazado:['Rechazado','bad'],anulado:['Retirado','']};
 function filaCambio(c,o={}){
