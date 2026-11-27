@@ -465,7 +465,7 @@ function ir(k){
   if(S.previaSocio){ irPrevia(k); return; }
   usar(k);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,comunicados:vComunicados,votaciones:vVotaciones,yo:vYo,uso:vUso,mapa:vMapa,esperasoc:vEsperaSoc,contab:vContab,cuentas:vCuentas})[k]();
+  S.vista=k; ({resumen,socios:vSocios,naves:vNaves,cuotas:vCuotas,campana:vCampana,espera:vEspera,minave:vNaves,validar:vValidar,junta:vJunta,sugerencias:vSugerencias,tablon:vTablon,comunicados:vComunicados,votaciones:vVotaciones,yo:vYo,punteo:vPunteo,uso:vUso,mapa:vMapa,esperasoc:vEsperaSoc,contab:vContab,cuentas:vCuentas})[k]();
 }
 const activos = () => S.socios.filter(s=>s.estado==='activo');
 const huecosDe = id => S.huecos.filter(h=>h.socio_id===id).map(h=>({...h,nave:S.nave[h.nave_id]?.nombre}));
@@ -847,6 +847,7 @@ function vCampana(){
     <div class="kpi k3"><div class="ico">${ICO.euro}</div><span>Cobrado</span><b>${eur(cobrado)}</b><span>de ${eur(total)} previstos</span></div>
     <div class="kpi k4"><div class="ico">${ICO.espera}</div><span>Pendientes</span><b>${pend.length}</b><span>${eur(total-cobrado)} por cobrar</span></div>
   </div>
+  <div class="card"><div class="flex" style="flex-wrap:wrap"><span class="grow" style="min-width:220px"><h2 style="margin:0 0 4px">🏦 Puntear el extracto del banco</h2><span class="muted">Sube el Excel de movimientos de Unicaja. La web reconoce a qué socio es cada ingreso, tú revisas la lista y, al confirmar, cada socio recibe un aviso de que su pago ha llegado.</span></span><button class="btn" onclick="abrirPunteo()">Subir el extracto</button></div></div>
   <div class="card"><h2>Calendario de la campaña</h2><div class="pasos">
     ${pasos.map((p,i)=>{ if(p.k){ const av=AVISOS[p.k], e=env(p.k), d=destinatarios(a,p.k);
         const hecho=e.length||S.mensajes.some(m=>m.anio===a.anio&&m.tipo===p.k);
@@ -920,6 +921,157 @@ async function confirmarComunicado(id){
   const pc=S.comunicados.find(x=>x.id===id);
   await pagoManual(pc.cuota_id);
   if(S.cuotas.find(c=>c.id===pc.cuota_id)?.estado==='pagada'){ await q(sb.from('pagos_comunicados').update({revisado:true}).eq('id',id)); await cargar(); if(dlg.open) dlg.close(); vCampana(); }
+}
+// ---------- Punteo de pagos con el extracto del banco ----------
+// La junta sube el Excel de Unicaja; la web reconoce a qué socio corresponde cada ingreso,
+// la junta revisa la lista y, al confirmar, se anotan los pagos y se avisa a cada socio.
+const PT_NO = new Set(['DE','DEL','LA','LAS','LOS','Y','E','EL']);
+const ptTok = s => (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
+const ptNom = s => ptTok(s).join(' ');
+function ptDebe(sid){ // cuotas pendientes del socio y lo que le falta de cada una
+  return S.cuotas.filter(c=>c.socio_id===sid&&c.estado==='pendiente').sort((a,b)=>a.anio-b.anio||a.id-b.id)
+    .map(c=>({c, falta: Math.round((Number(c.importe)-Number(c.descuento||0)-S.pagos.filter(p=>p.cuota_id===c.id).reduce((x,p)=>x+Number(p.importe),0))*100)/100})).filter(x=>x.falta>0);
+}
+const ptDebeTotal = sid => ptDebe(sid).reduce((x,d)=>x+d.falta,0);
+function ptCandidatos(concepto){
+  const nom=ptNom(concepto), out=new Map();
+  (S.ptPag||[]).filter(p=>p.nombre===nom).forEach(p=>{ if(S.socio[p.socio_id]?.estado==='activo') out.set(p.socio_id,'recordado'); });
+  const m=concepto.match(/\b(?:SOCIOS?|SOC|N[ºO°])\.?\s*(\d{1,3})\b/i);
+  if(m){ const s=activos().find(x=>x.numero===Number(m[1])); if(s) out.set(s.id,'numero'); }
+  const t=ptTok(concepto).filter(x=>!/^\d+$/.test(x)); let best=[], bs=0;
+  activos().forEach(s=>{ const st=ptTok(s.nombre); let ok=0, okF=0;
+    t.forEach((x,i)=>{ const hit=st.includes(x)||(i===t.length-1&&x.length>=3&&st.some(y=>y.startsWith(x))); if(hit){ ok++; if(!PT_NO.has(x)) okF++; } });
+    const sc = ok===t.length&&t.length>=2 ? 100+okF : okF>=3 ? okF : 0;
+    if(sc>bs){ bs=sc; best=[s.id]; } else if(sc&&sc===bs) best.push(s.id); });
+  best.forEach(id=>{ if(!out.has(id)) out.set(id,'nombre'); });
+  return out;
+}
+function ptProponer(mv,usado){
+  const ptDebeT = sid => Math.max(0,ptDebeTotal(sid)-(usado[sid]||0));
+  const cand=ptCandidatos(mv.concepto), ids=[...cand.keys()], imp=mv.importe;
+  const r={ids:[], estado:'revisar', motivo:''};
+  if(!ids.length){ r.motivo='No encuentro a qué socio corresponde este nombre.'; return r; }
+  const fit=ids.filter(id=>ptDebeT(id)===imp);
+  if(ids.length>1 && ids.reduce((x,id)=>x+ptDebeT(id),0)===imp && ids.every(id=>ptDebeT(id)>0)){ r.ids=ids; r.estado='ok'; return r; }
+  if(fit.length===1){ r.ids=fit; r.estado = (ids.length===1||cand.get(fit[0])==='recordado') ? 'ok' : 'revisar'; if(r.estado!=='ok') r.motivo='Hay varios socios posibles: '+ids.map(i=>S.socio[i].numero).join(', ')+'.'; return r; }
+  r.ids=[ids[0]];
+  if(ids.length>1) r.motivo='Hay varios socios posibles: '+ids.map(i=>S.socio[i].numero).join(', ')+'.';
+  else { const d=ptDebeT(ids[0]); r.motivo = d===0 ? 'Este socio no tiene ninguna cuota pendiente.' : `Paga ${eur(imp)} y debe ${eur(d)}.`; }
+  return r;
+}
+async function ptLeerExcel(file){
+  if(!window.XLSX) await new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; s.onload=ok; s.onerror=()=>ko(new Error('No se ha podido cargar el lector de Excel.')); document.head.appendChild(s); });
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  const filas=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:null});
+  const cab=filas.findIndex(f=>f.some(x=>/concepto/i.test(x||''))&&f.some(x=>/importe/i.test(x||'')));
+  if(cab<0) throw new Error('Este archivo no parece un extracto de Unicaja (no encuentro las columnas «Concepto» e «Importe»).');
+  const H=filas[cab].map(x=>(x||'').toString().toLowerCase()), col=re=>H.findIndex(h=>re.test(h));
+  const cF=col(/fecha/), cC=col(/^concepto$/), cI=col(/^importe/), cN=col(/n.?\s*mov/);
+  const num=v=> typeof v==='number'?v:Number((v||'').toString().replace(/\./g,'').replace(',','.').replace(/[^\d.-]/g,''));
+  const fec=v=>{ if(v instanceof Date) return new Date(v.getTime()-v.getTimezoneOffset()*6e4).toISOString().slice(0,10); const m=(v||'').toString().match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; return (v||'').toString().slice(0,10); };
+  return filas.slice(cab+1).filter(f=>f[cC]&&f[cI]!=null&&f[cN]!=null).map(f=>({nmov:Number(f[cN]), fecha:fec(f[cF]), concepto:f[cC].toString().trim(), importe:Math.round(num(f[cI])*100)/100})).filter(m=>m.nmov&&m.importe);
+}
+function abrirPunteo(){
+  $('#dlgT').textContent='Puntear el extracto del banco';
+  $('#dlgB').innerHTML=`<p style="margin-top:0">Sube el Excel de movimientos de Unicaja. Yo reconozco a qué socio es cada ingreso y te enseño la lista. <b>No se anota nada ni se avisa a nadie hasta que tú lo confirmes.</b></p>
+    <p class="muted">En la web de Unicaja: Cuentas → Movimientos → elige las fechas → Exportar a Excel. Puedes subir varias semanas: los ingresos que ya estén punteados no salen otra vez.</p>
+    <label>Extracto del banco (Excel)</label><input type="file" id="ptF" accept=".xls,.xlsx,.csv">
+    <p id="ptE" class="muted"></p>`;
+  $('#ptF').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $('#ptE').textContent='Leyendo…';
+    try{ const mv=await ptLeerExcel(f); dlg.close(); await ptPreparar(mv); }catch(err){ $('#ptE').innerHTML=`<span style="color:var(--bad,#c00)">${esc(err.message)}</span>`; } };
+  if(!dlg.open) dlg.showModal();
+}
+async function ptPreparar(mv){
+  const ya=new Set((await q(sb.from('banco_movimientos').select('nmov'))).map(x=>Number(x.nmov)));
+  S.ptPag=await q(sb.from('banco_pagadores').select('*'));
+  const ing=mv.filter(m=>m.importe>0), nuevos=ing.filter(m=>!ya.has(m.nmov)).sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.nmov-b.nmov);
+  const usado={};
+  S.punteo={filas:nuevos.map(m=>{ const p=ptProponer(m,usado); const f={...m, ...p, accion:p.estado==='ok'?'confirmar':'dejar', socios:p.ids.map(i=>S.socio[i].numero).join(' ')};
+    if(f.accion==='confirmar'){ let r=f.importe; p.ids.forEach(id=>{ const x=Math.min(r,Math.max(0,ptDebeTotal(id)-(usado[id]||0))); usado[id]=(usado[id]||0)+x; r-=x; }); }
+    return f; }), yaHechos:ing.length-nuevos.length, gastos:mv.length-ing.length};
+  S.vista='punteo'; vPunteo();
+}
+function ptCalc(){ // lo que debe cada socio en cada fila, descontando lo que ya cubren las filas anteriores de la lista
+  const usado={};
+  S.punteo.filas.forEach(f=>{ f.disp={}; ptSocios(f.socios).forEach(s=>{ if(!s.falta) f.disp[s.id]=Math.max(0,ptDebeTotal(s.id)-(usado[s.id]||0)); });
+    if(f.accion==='confirmar'){ let r=f.importe; Object.keys(f.disp).forEach(id=>{ const x=Math.min(r,f.disp[id]); usado[id]=(usado[id]||0)+x; r-=x; }); } });
+}
+function ptSocios(txt){ return [...new Set((txt||'').split(/[^\d]+/).filter(Boolean).map(Number))].map(n=>activos().find(s=>s.numero===n)||{numero:n,falta:true}); }
+function ptInfo(f){
+  const ss=ptSocios(f.socios);
+  if(!ss.length) return '<span class="muted">Escribe el número de socio.</span>';
+  return ss.map(s=>s.falta?`<span style="color:#c00">No hay ningún socio activo con el número ${s.numero}.</span>`:`<span><span class="num">${s.numero}</span> ${esc(s.nombre)} · debe <b>${eur(f.disp?.[s.id]??ptDebeTotal(s.id))}</b>${(f.disp?.[s.id]??0)<ptDebeTotal(s.id)?' <span class="muted">(el resto lo cubre otro ingreso de esta lista)</span>':''}</span>`).join('<br>');
+}
+function ptAviso(f){ // comprobación en vivo de lo que ha escrito la junta
+  const ss=ptSocios(f.socios); if(!ss.length||ss.some(s=>s.falta)) return 'Falta el socio.';
+  const d=ss.reduce((x,s)=>x+(f.disp?.[s.id]??0),0);
+  if(d===0) return 'No tiene cuotas pendientes. Si ya está apuntado, elige «Ya está apuntado o no es una cuota».';
+  return d===f.importe ? '' : `Paga ${eur(f.importe)} y debe ${eur(d)}. ${f.importe<d?'Quedará pendiente lo que falta.':'Sobran '+eur(f.importe-d)+'.'}`;
+}
+function vPunteo(){
+  const P=S.punteo; if(!P){ ir('campana'); return; }
+  const ok=P.filas.filter(f=>f.estado==='ok').length, rev=P.filas.length-ok, conf=P.filas.filter(f=>f.accion==='confirmar').length;
+  const fila=(f,i)=>`<div class="pt-fila ${f.estado}" id="ptr${i}">
+      <div class="flex" style="flex-wrap:wrap"><span class="muted" style="min-width:84px">${fecha(f.fecha)}</span><b class="grow">${esc(f.concepto)}</b><span class="tag ${f.importe%60?'warn':'ok'}" style="font-size:15px">${eur(f.importe)}</span></div>
+      ${f.estado!=='ok'?`<p class="pt-motivo">⚠️ ${esc(f.motivo)}</p>`:''}
+      <div class="row" style="align-items:end">
+        <div style="max-width:170px"><label>Nº de socio</label><input value="${esc(f.socios)}" inputmode="numeric" placeholder="Ej.: 23 o 23 24" oninput="S.punteo.filas[${i}].socios=this.value;ptPinta(${i})"></div>
+        <div><label>Qué hago</label><select onchange="S.punteo.filas[${i}].accion=this.value;ptPinta(${i})">
+          <option value="confirmar" ${f.accion==='confirmar'?'selected':''}>Anotar el pago y avisar al socio</option>
+          <option value="dejar" ${f.accion==='dejar'?'selected':''}>Dejarlo para otro día</option>
+          <option value="no_cuota" ${f.accion==='no_cuota'?'selected':''}>Ya está apuntado o no es una cuota</option></select></div>
+      </div>
+      <div class="pt-info" id="pti${i}"></div></div>`;
+  $('#main').innerHTML=`<div class="card camp"><div class="flex"><h2 class="grow" style="margin:0">Puntear el extracto del banco</h2><button class="btn sec small" onclick="S.punteo=null;ir('campana')">Volver a Campaña</button></div>
+    <p style="margin:10px 0 0"><b>${P.filas.length} ingresos nuevos</b>: ${ok} reconocidos ✅ y ${rev} para revisar ⚠️.${P.yaHechos?` ${P.yaHechos} ya estaban punteados de otra vez y no salen.`:''}</p>
+    <p class="muted" style="margin:6px 0 0">Revisa la lista. Los dudosos están en amarillo: escribe el número de socio (si paga por varios, sepáralos con un espacio) y elige qué hago. Al final, pulsa el botón verde.</p></div>
+    ${P.filas.length?`<div class="card">${P.filas.map(fila).join('')}</div>
+    <div class="card" style="position:sticky;bottom:8px;z-index:2"><div class="flex"><span class="grow" id="ptRes"></span><button class="btn" id="ptB" onclick="ptConfirmar()"></button></div></div>`:'<div class="card"><p>No hay ingresos nuevos en este extracto.</p></div>'}
+    <style>.pt-fila{border:1px solid var(--line,#ddd);border-left:6px solid var(--ok,#2a9d4b);border-radius:12px;padding:10px 12px;margin:10px 0}.pt-fila.revisar{border-left-color:var(--sun,#f2b705);background:var(--sun-l,#fff8e1)}.pt-fila.ok.dejar{opacity:.65}.pt-motivo{margin:6px 0;font-size:14px}.pt-info{font-size:14px;margin-top:6px}</style>`;
+  ptCalc(); P.filas.forEach((f,i)=>ptPinta(i,true));
+}
+function ptPinta(i,solo){
+  const P=S.punteo; if(!solo){ ptCalc(); return P.filas.forEach((x,j)=>ptPinta(j,true)); }
+  const f=P.filas[i], el=$('#pti'+i); if(!el) return;
+  const a=f.accion==='confirmar'?ptAviso(f):'';
+  el.innerHTML=ptInfo(f)+(a?`<br><b style="color:#b06000">${esc(a)}</b>`:'');
+  $('#ptr'+i).classList.toggle('dejar',f.accion==='dejar');
+  const n=P.filas.filter(x=>x.accion==='confirmar').length, nn=P.filas.filter(x=>x.accion==='no_cuota').length;
+  $('#ptRes').textContent=`${n} pagos para anotar${nn?` · ${nn} se marcan como revisados`:''} · ${P.filas.length-n-nn} se quedan para otro día`;
+  $('#ptB').textContent=n?`Anotar ${n} pagos y avisar a los socios`:'Guardar';
+  $('#ptB').disabled=!n&&!nn;
+}
+async function ptConfirmar(){
+  const P=S.punteo, conf=P.filas.filter(f=>f.accion==='confirmar'), noc=P.filas.filter(f=>f.accion==='no_cuota');
+  ptCalc(); const mal=conf.find(f=>{ const ss=ptSocios(f.socios); return !ss.length||ss.some(s=>s.falta)||ss.reduce((x,s)=>x+(f.disp[s.id]||0),0)===0; });
+  if(mal){ aviso(`Revisa el ingreso de ${mal.concepto} (${eur(mal.importe)}): ${ptAviso(mal)}`,'Falta algo'); return; }
+  if(!await confirmar(`Se anotarán ${conf.length} pagos y cada socio recibirá un aviso en la web y en el móvil confirmando su pago.`,{titulo:'¿Anotar los pagos y avisar?',ok:'Sí, anotar y avisar'})) return;
+  const b=$('#ptB'); b.disabled=true; b.textContent='Anotando…';
+  const avisar=[];
+  for(const f of conf){
+    let resto=f.importe; const ss=ptSocios(f.socios), nom=ptNom(f.concepto);
+    for(const s of ss){
+      const deudas=ptDebe(s.id); let suyo=0; const partes=[];
+      for(const d of deudas){ if(resto<=0) break; const x=Math.min(resto,d.falta); resto=Math.round((resto-x)*100)/100; suyo+=x;
+        const [p]=await q(sb.from('pagos').insert({cuota_id:d.c.id,socio_id:s.id,fecha:f.fecha,importe:x,metodo:'transferencia',referencia:'Banco nº mov '+f.nmov,notas:'Pagado por: '+f.concepto}).select());
+        S.pagos.push(p);
+        if(x>=d.falta){ await q(sb.from('cuotas').update({estado:'pagada'}).eq('id',d.c.id)); d.c.estado='pagada'; }
+        partes.push({c:d.c,x,completa:x>=d.falta}); }
+      if(!partes.length) continue;
+      await log(s.id,'pago anotado',partes.map(p=>`${p.c.tipo} ${p.c.anio}: ${eur(p.x)} por transferencia (banco, ${fecha(f.fecha)}, pagado por ${f.concepto})`).join('; '));
+      await q(sb.from('banco_pagadores').upsert({nombre:nom,socio_id:s.id,veces:((S.ptPag||[]).find(x=>x.nombre===nom&&x.socio_id===s.id)?.veces||0)+1,ultimo:f.fecha},{onConflict:'nombre,socio_id'}));
+      const falta=ptDebeTotal(s.id), anio=partes[0].c.anio;
+      const cuerpo=`Hola. Hemos recibido en el banco tu pago de ${eur(suyo)} (${partes.map(p=>p.c.tipo==='anual'?'cuota '+p.c.anio:p.c.tipo+' '+p.c.anio).join(', ')}), con fecha ${fecha(f.fecha)}.\n\n${falta>0?`Te falta por pagar ${eur(falta)}.`:'Ya está todo pagado. ¡Muchas gracias!'}\n\nLa junta del Windsurf Club Sancti Petri`;
+      await q(sb.from('mensajes').insert({socio_id:s.id,anio:S.campanas.some(c=>c.anio===anio)?anio:null,tipo:'pago-'+f.nmov,canal:'web',asunto:falta>0?'Pago recibido (falta una parte)':'Pago recibido. ¡Gracias!',cuerpo}));
+      avisar.push(s.id);
+    }
+    await q(sb.from('banco_movimientos').insert({nmov:f.nmov,fecha:f.fecha,concepto:f.concepto,importe:f.importe,resultado:'punteado',socios:ss.map(s=>s.id),nota:resto>0?'Sobran '+eur(resto):null}));
+  }
+  for(const f of noc) await q(sb.from('banco_movimientos').insert({nmov:f.nmov,fecha:f.fecha,concepto:f.concepto,importe:f.importe,resultado:'no_cuota',socios:ptSocios(f.socios).filter(s=>!s.falta).map(s=>s.id)}));
+  let moviles=0, emails=0;
+  if(avisar.length){ try{ const {data}=await sb.functions.invoke('avisar-pago',{body:{socios:[...new Set(avisar)]}}); moviles=data?.ok||0; emails=data?.emails||0; }catch(e){} }
+  S.punteo=null; await cargar(); ir('campana');
+  hecho('Pagos anotados', `${conf.length} pagos anotados. Avisados ${new Set(avisar).size} socios en la web${emails?`, ${emails} por email`:''}${moviles?` y ${moviles} en el móvil`:''}.`);
 }
 async function guardarMensajes(anio,tipo,ids,canal){
   const a=S.campanas.find(c=>c.anio===anio), asunto=($('#avA')?.value||AVISOS[tipo].asunto(a)).trim(), cuerpo=($('#avC')?.value||AVISOS[tipo].cuerpo(a));
@@ -1201,7 +1353,7 @@ async function desactivarAvisos(){
   try{ const sub=await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if(sub){ await sb.rpc('quitar_suscripcion',{p_endpoint:sub.endpoint}); await sub.unsubscribe(); } }catch(e){}
   pintarAvisosMovil();
 }
-if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.ir==='comunicados'&&S.socios){ cargar().then(()=>{ if(!S.gestor) $('#nav').innerHTML=navHTML(TABS=tabsSocio(S.misNaves.length, navesTablon().ver.length)); ir('comunicados'); }); } });
+if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&['comunicados','yo'].includes(e.data.ir)&&S.socios){ cargar().then(()=>{ if(!S.gestor) $('#nav').innerHTML=navHTML(TABS=tabsSocio(S.misNaves.length, navesTablon().ver.length)); ir(S.gestor&&e.data.ir==='yo'?'resumen':e.data.ir); }); } });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&S.socios&&!S.previaSocio) q(sb.from('comunicados_junta').select('*').order('fecha',{ascending:false})).then(l=>{ const antes=(S.boletin||[]).length; S.boletin=l; ponerNumeroIcono(); if(!S.gestor&&l.length!==antes){ const b=document.querySelector('#nav button[data-k="comunicados"]'); if(b) b.innerHTML=etiquetaCom(); } }).catch(()=>{}); });
 async function publicarComJunta(){
   const titulo=$('#cmT').value.trim(), texto=$('#cmX').value.trim(), fotos=ADJ.com||[];
