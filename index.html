@@ -685,9 +685,10 @@ async function todasNavesDesplegables(socioPrevia){
   const naves=[]; (data||[]).forEach(r=>{ let n=naves.find(x=>x.id===r.nave_id); if(!n){ n={id:r.nave_id,nombre:r.nave,tipo:r.tipo,capacidad:r.capacidad,h:[]}; naves.push(n);} n.h.push(r); });
   const ord=c=>{const m=/^\d+$/.test(c); return m?[0,Number(c),'']:[1,0,c];};
   naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
-  naves.sort((a,b)=>a.id-b.id);
+  const propias=S.previaEnc||S.misNaves||[];
+  const otras=naves.filter(n=>!propias.includes(n.id)).sort((a,b)=>a.id-b.id); if(!otras.length) return;
   const encN=await encargadosNum(); if(!caja()) return;
-  caja().innerHTML=`<div class="card"><h2 style="margin-bottom:6px">Todas las naves</h2><p class="muted" style="margin:0">Pulsa el nombre de una nave para ver sus huecos y el número del socio que ocupa cada uno.</p></div>${htmlNavesDesplegables(naves,encN)}`;
+  caja().innerHTML=`<div class="card"><h2 style="margin-bottom:6px">Las demás naves</h2><p class="muted" style="margin:0">Pulsa el nombre de una nave para ver sus huecos y el número del socio que ocupa cada uno.</p></div>${htmlNavesDesplegables(otras,encN)}`;
 }
 function plegarNave(id,h2){
   const A=S.navAbiertas||(S.navAbiertas=new Set()), c=h2.closest('.nave').querySelector('.plegable'), ab=c.classList.toggle('hidden')===false;
