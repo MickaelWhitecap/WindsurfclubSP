@@ -655,10 +655,11 @@ function vNaves(){
     const hs=S.huecos.filter(h=>h.nave_id===n.id).sort((a,b)=>a.codigo.localeCompare(b.codigo,'es',{numeric:true}));
     const oc=hs.filter(h=>h.socio_id).length;
     const en=(S.encargados||[]).find(e=>e.nave_id===n.id), es=en&&S.socio[en.socio_id];
-    return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow">${esc(n.nombre)}</h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
+    const ab=(S.navAbiertas||(S.navAbiertas=new Set())).has(n.id);
+    return `<div class="card nave ${tipoC(n)}"><div class="cab"><h2 class="grow" style="cursor:pointer" onclick="plegarNave(${n.id},this)">${esc(n.nombre)} <span class="muted plg" style="font-size:16px">${ab?'▴':'▾'}</span></h2><span class="badge">${oc} de ${n.capacidad} ocupados</span>
       ${!enc?`<button class="btn sec small" onclick="cambiarEncargado(${n.id})">Encargado</button>${es?`<button class="btn sun small" onclick="verComoEncargado(${n.id})">Ver como el encargado</button>`:''}<button class="btn sec small" onclick="editarNave(${n.id})">Capacidad</button><button class="btn sec small" onclick="nuevoHueco(${n.id})">Añadir hueco</button>`:`<button class="btn sec small" onclick="proponerCapacidad(${n.id})">Capacidad</button><button class="btn sec small" onclick="proponerHueco(${n.id})">Añadir hueco</button>`}</div>
       ${!enc?`<div class="encargado">${es?`${avatar(es)}<span><span class="muted" style="font-size:13px">Encargado de la nave</span><br><b>${esc(es.nombre)}</b> <span class="muted">· socio ${es.numero}${es.telefono?' · '+esc(es.telefono):''}</span></span>`:`<span class="muted">Sin encargado asignado.</span>`}</div>`:''}
-      <div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:`borrarHueco(${h.id})`):`huecoEnc(${h.id})`}" ${enc||!s?'style="cursor:pointer"':''} ${!enc&&!s?'title="Pulsa para borrar este hueco"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div>${!enc&&hs.some(h=>!h.socio_id)?'<p class="muted" style="font-size:13px;margin:10px 0 0">Para borrar un hueco libre, púlsalo.</p>':''}</div>`;
+      ${enc?`<p class="muted" style="font-size:13px;margin:0">Pulsa «${esc(n.nombre)}» para ver u ocultar los huecos.</p>`:''}<div class="plegable ${ab?'':'hidden'}" ${enc?'style="margin-top:12px"':''}><div class="grid-huecos">${hs.map(h=>{const s=S.socio[h.socio_id]; return `<div class="hueco ${s?'':'libre'} ${h.cesion?'ces':''}" onclick="${!enc?(s?`ficha(${s.id})`:`borrarHueco(${h.id})`):`huecoEnc(${h.id})`}" ${enc||!s?'style="cursor:pointer"':''} ${!enc&&!s?'title="Pulsa para borrar este hueco"':''}><b>${esc(h.codigo)}</b>${s?`<span class="muted">Socio ${s.numero}</span><br>${esc(s.nombre)}${h.cesion?'<br><span class="muted">cesión</span>':''}`:'libre'}${enc&&pendH.has(h.id)?'<br><span class="tag warn">por validar</span>':''}</div>`;}).join('')}</div>${!enc&&hs.some(h=>!h.socio_id)?'<p class="muted" style="font-size:13px;margin:10px 0 0">Para borrar un hueco libre, púlsalo.</p>':''}</div></div>`;
   }).join('') + (enc?`<div class="card"><h2>Mis propuestas</h2>${props.length?props.map(c=>filaCambio(c,{anular:!S.previaEnc})).join(''):'<p class="muted">Todavía no has propuesto ningún cambio.</p>'}</div><div id="todasNaves"></div>`:'');
   if(enc) todasNavesDesplegables(enP?enP.socio_id:null);
 }
@@ -676,6 +677,10 @@ async function todasNavesDesplegables(socioPrevia){
   naves.forEach(n=>n.h.sort((a,b)=>{const x=ord(a.codigo),y=ord(b.codigo); return x[0]-y[0]||x[1]-y[1]||x[2].localeCompare(y[2],'es');}));
   naves.sort((a,b)=>a.id-b.id);
   caja().innerHTML=`<div class="card"><h2 style="margin-bottom:6px">Todas las naves</h2><p class="muted" style="margin:0 0 12px">Pulsa una nave para ver sus huecos y el número del socio que ocupa cada uno.</p>${htmlNavesDesplegables(naves)}</div>`;
+}
+function plegarNave(id,h2){
+  const A=S.navAbiertas||(S.navAbiertas=new Set()), c=h2.closest('.nave').querySelector('.plegable'), ab=c.classList.toggle('hidden')===false;
+  ab?A.add(id):A.delete(id); h2.querySelector('.plg').textContent=ab?'▴':'▾';
 }
 const ESTADO_CAMBIO={pendiente:['Pendiente del presidente','warn'],aprobado:['Aprobado','ok'],rechazado:['Rechazado','bad'],anulado:['Retirado','']};
 function filaCambio(c,o={}){
