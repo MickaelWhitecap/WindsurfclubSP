@@ -1109,6 +1109,18 @@ function ponerNumeroIcono(){
   const n=comSinLeer(S.misIdsReal||[]).length;
   (n?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(()=>{});
 }
+function avisoNac(yo,previa){
+  if(yo.fecha_nacimiento) return '';
+  return `<div class="card aviso-camp"><h2 style="margin-bottom:6px">🎂 Completa tu fecha de nacimiento</h2><p style="margin:0 0 10px">La junta te pide que la pongas. Solo la veis tú y la junta.</p>
+    <div class="flex"><input id="miNac" type="date" max="${hoy()}" style="max-width:220px"><button class="btn" ${previa?'disabled':`onclick="guardarMiNac(${yo.id})"`}>Guardar</button></div></div>`;
+}
+async function guardarMiNac(id){
+  const v=$('#miNac').value;
+  if(!v){ aviso('Elige tu fecha de nacimiento.'); return; }
+  if(v>hoy()||v<'1900-01-01'){ aviso('Esa fecha no es válida.'); return; }
+  await q(sb.rpc('poner_fecha_nacimiento',{p_socio:id,p_fecha:v}));
+  await cargar(); refrescar(); aviso('Guardada. Gracias.');
+}
 function avisoCom(){
   const l=comSinLeer(); if(!l.length) return '';
   return `<div class="card aviso-camp"><div class="flex"><span class="grow">📣 <b>${l.length===1?'Tienes 1 comunicado nuevo':'Tienes '+l.length+' comunicados nuevos'}</b> de la junta${l.length===1?`: «${esc(l[0].titulo)}»`:''}.</span><button class="btn small" onclick="ir('comunicados')">Leer</button></div></div>`;
@@ -1715,7 +1727,7 @@ function vYo(prev){
   $('#main').innerHTML = `${prev?`<div class="card" style="background:var(--sun-l);border-color:var(--sun)"><div class="flex"><span class="grow"><b>Vista previa.</b> Así ve la web ${esc(yo.nombre)} cuando entra con su email. Arriba tienes sus mismas pestañas. Los botones no hacen nada.</span><button class="btn small" onclick="volverPanel()">Volver al panel</button></div></div>`:''}${avisoRet}<div class="card"><div class="pname" style="margin-bottom:12px">${avatar(yo,64)}<div><h2 style="margin:0">${esc(yo.nombre)}</h2><span class="num">Socio nº ${yo.numero}</span></div></div>
     ${botonesFoto(yo,!!prev)}
     <div class="row"><div><label>Email</label>${esc(yo.email)}</div><div><label>Teléfono</label>${esc(yo.telefono)}</div><div><label>Talla de licra</label>${esc(yo.talla_licra)}</div><div><label>Fecha de nacimiento</label>${yo.fecha_nacimiento?fecha(yo.fecha_nacimiento):'<span class="muted">sin poner</span>'}</div><div><label>Edad</label>${edad(yo.fecha_nacimiento)||'<span class="muted">—</span>'}</div></div>
-    <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>${avisoCom()}${avisoVot()}${avisoTablon()}${enlacesTiempo()}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}
+    <p class="muted">Si algún dato no es correcto, avisa a la junta.</p></div>${avisoNac(yo,!!prev)}${avisoCom()}${avisoVot()}${avisoTablon()}${enlacesTiempo()}${avisoCamp}${ms.some(m=>!m.leido_en)?misAvisos:''}
     <div class="card"><h2>Mis huecos</h2>${(()=>{ const l=prev?[...new Set(hs.map(h=>h.nave_id))].map(id=>{const e=(S.encargados||[]).find(x=>x.nave_id===id); return e&&{nave:S.nave[id].nombre,encargado:S.socio[e.socio_id]?.nombre,telefono:S.socio[e.socio_id]?.telefono};}).filter(Boolean):(S.misEncargados||[]); return l.length?`<p class="muted" style="margin-top:-4px">${l.map(e=>`Encargado de ${esc(e.nave)}: <b style="color:var(--ink)">${esc(e.encargado)}</b>${e.telefono?` · <a href="tel:${esc(e.telefono)}">${esc(e.telefono)}</a>`:''}`).join(' · ')}</p>`:''; })()}${hs.length?`<div class="grid-huecos">${hs.map(h=>`<div class="hueco nave ${tipoC(S.nave[h.nave_id]||{})} ${h.cesion?'ces':''}" style="cursor:default"><b>${esc(h.codigo)}</b>${esc(h.nave)}${h.cesion?'<br><span class="muted">cesión</span>':''}</div>`).join('')}</div>`:'<p class="muted">Ahora mismo no tienes hueco asignado.</p>'}</div>
     <div class="card"><h2>Mis cuotas</h2><table><tr><th>Año</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
     ${cs.map(c=>`<tr><td>${c.anio}</td><td>${c.tipo}</td><td>${eur(c.importe-c.descuento)}</td><td>${estadoTag(c)}</td><td>${c.estado==='pendiente'&&!prev?`<div class="flex"><button class="btn small" onclick="pagarTPV(${c.id},'tarjeta')">Tarjeta</button><button class="btn bizum small" onclick="pagarTPV(${c.id},'bizum')">Bizum</button></div>`:''}</td></tr>`).join('')}</table></div>
